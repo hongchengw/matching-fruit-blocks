@@ -223,3 +223,36 @@ registerSprite('pumpkin', [
   '................',
   '................',
 ]);
+
+// ---------------------------------------------------------------------------
+// Card back
+//
+// Full-bleed crate slats with a small centered leaf. Every pixel is opaque, so
+// the outline and margin rules that govern the fruits do not apply here; the
+// shape suite exempts it explicitly rather than loosening those checks.
+//
+// Deliberately low contrast and uniform. This is the sprite the player stares
+// at most, and its job is to be unmemorable: a distinctive back would let them
+// fingerprint card positions and follow one through the silent reshuffle
+// (SPEC.md §7.3), which would reopen the tally detection channel.
+//
+// There is exactly one back, shared by all 36 cards. Never add variants.
+// ---------------------------------------------------------------------------
+registerSprite('back', [
+  'bbbbbbbbbbbbbbbb',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+  'bbbbbbbbbbbbbbbb',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBGBBBBBBB',
+  'BBBBBBBGGBBBBBBB',
+  'bbbbbbbbbbbbbbbb',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+  'bbbbbbbbbbbbbbbb',
+  'BBBBBBBBBBBBBBBB',
+  'BBBBBBBBBBBBBBBB',
+]);

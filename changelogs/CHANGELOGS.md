@@ -20,6 +20,16 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 07:01 EDT | feat(sprites): card back sprite (task 10)
+
+Added the 16x16 card back: full-bleed `B` crate slats with `b` highlight lines and a small
+centered `G` leaf. Every pixel opaque, three characters total, one shared entry for all 36
+cards.
+Covered by the shared shape suite plus four dedicated unit tests (fully opaque, no per-card
+variants, explicit outline/margin exemption, low contrast) and a browser test comparing it to
+every fruit in full RGBA rather than by alpha mask. Completes the sprite set: 7 registered.
+Full suite green: 68 unit, 7 e2e.
+
 ## 2026-07-31 06:59 EDT | feat(sprites): pumpkin sprite (task 09)
 
 Added the 16x16 pumpkin: widest sprite in the set, `O` body with `o` vertical ribs, closed `K`
