@@ -101,10 +101,13 @@ test('flip duration is exposed as a custom property', async ({ page }) => {
 
 test('flip uses rotateY', async ({ page }) => {
   await page.goto('/');
-  const matrix = await page.evaluate(() => {
+  const matrix = await page.evaluate(async () => {
     const card = document.querySelector('[data-card]');
-    card.dataset.state = 'up';
     const inner = card.querySelector('.card__inner');
+    card.dataset.state = 'up';
+    // Let the transition finish. Reading immediately returns the pre-transition
+    // value, since the transition does not begin until the next frame.
+    await new Promise((r) => setTimeout(r, 300));
     return getComputedStyle(inner).transform;
   });
   // A Y-axis rotation produces a 3D matrix, not a translate or an opacity fade.
@@ -113,18 +116,64 @@ test('flip uses rotateY', async ({ page }) => {
   expect(values[0]).toBeCloseTo(-1, 1); // cos(180deg)
 });
 
-test('card is unreadable at the flip midpoint', async ({ page }) => {
-  // This is the hiding place task 18 depends on. Prove it exists before
-  // anything relies on it.
+/*
+ * The three tests below together establish the hiding place task 18 depends on.
+ *
+ * Measuring the flip's exact midpoint from wall-clock time is not reliable: the
+ * transition starts a frame after the style change, and the window where the
+ * face is narrow enough to be unreadable is only a few milliseconds wide. The
+ * underlying property is deterministic even though sampling it is not, so it is
+ * tested directly instead: the geometry collapses when edge-on, the timing
+ * function is linear, and a real flip is observed passing through that region.
+ */
+
+test('card is unreadable when edge-on', async ({ page }) => {
   await page.goto('/');
-  const width = await page.evaluate(async () => {
+  const measured = await page.evaluate(() => {
+    const card = document.querySelector('[data-card]');
+    const inner = card.querySelector('.card__inner');
+    const front = card.querySelector('.card__face--front');
+    const full = card.getBoundingClientRect().width;
+    inner.style.transition = 'none';
+    inner.style.transform = 'rotateY(90deg)';
+    const width = front.getBoundingClientRect().width;
+    return { width, full };
+  });
+  expect(measured.full).toBeGreaterThan(20);
+  expect(measured.width).toBeLessThan(4);
+});
+
+test('flip is linear so the midpoint is edge-on', async ({ page }) => {
+  // With a linear curve, half the duration is exactly 90 degrees. An eased
+  // curve would put the card somewhere else at the moment task 18 swaps.
+  await page.goto('/');
+  const easing = await page.evaluate(
+    () => getComputedStyle(document.querySelector('.card__inner')).transitionTimingFunction,
+  );
+  expect(easing).toBe('linear');
+});
+
+test('a real flip passes through the edge-on region', async ({ page }) => {
+  await page.goto('/');
+  const { min, full } = await page.evaluate(async () => {
     const card = document.querySelector('[data-card]');
     const front = card.querySelector('.card__face--front');
+    const full = card.getBoundingClientRect().width;
+    let min = Infinity;
+    let done = false;
+    const sample = () => {
+      min = Math.min(min, front.getBoundingClientRect().width);
+      if (!done) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
     card.dataset.state = 'up';
-    await new Promise((r) => setTimeout(r, 90));
-    return front.getBoundingClientRect().width;
+    await new Promise((r) => setTimeout(r, 300));
+    done = true;
+    return { min, full };
   });
-  expect(width).toBeLessThan(4);
+  // Frame sampling cannot guarantee landing on 90 degrees exactly, but the face
+  // must be observed heavily foreshortened partway through.
+  expect(min / full).toBeLessThan(0.35);
 });
 
 test('locked cards use the recessed bevel', async ({ page }) => {

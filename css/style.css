@@ -25,6 +25,27 @@
   --fm-lcd-on: #f2d066;
 
   --fm-bevel-width: 3px;
+
+  /*
+   * Flip duration in milliseconds, unitless so JS can read it as a number.
+   *
+   * Load-bearing (SPEC.md §2.3, §7.1). Task 18 schedules the rigged identity
+   * swap at half this value, when the card is edge-on and unreadable. Anything
+   * that changes the duration must change it here so the midpoint follows.
+   */
+  --fm-flip-ms: 180;
+}
+
+/*
+ * SPEC.md §9: shorten the flip under reduced motion, never remove it. The
+ * rotation is the only place the rigged swap can hide, so killing the animation
+ * would expose the trick. Shrinking the custom property keeps the midpoint
+ * proportional and means task 18 needs no special case.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --fm-flip-ms: 80;
+  }
 }
 
 * {
@@ -130,7 +151,7 @@ body {
   letter-spacing: 2px;
 }
 
-/* Crate slats behind the cards. */
+/* Crate slats behind the cards, and the 6x6 board (SPEC.md §2.1, §9). */
 .stall__grid {
   background-color: var(--fm-wood-light);
   background-image: repeating-linear-gradient(
@@ -140,6 +161,81 @@ body {
   );
   min-height: 40px;
   padding: 6px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: clamp(2px, 1vw, 8px);
+}
+
+/* -------------------------------------------------------------------------
+ * Cards
+ * ---------------------------------------------------------------------- */
+
+.card {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  /* Suppress double-tap zoom so taps register as taps (SPEC.md §9). */
+  touch-action: manipulation;
+  perspective: 400px;
+}
+
+.card:focus {
+  outline: 3px solid var(--fm-lcd-on);
+  outline-offset: 2px;
+}
+
+.card__inner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform calc(var(--fm-flip-ms) * 1ms) linear;
+}
+
+/*
+ * Linear easing is deliberate. Task 18 schedules the swap at half the duration
+ * and expects the card to actually be at 90 degrees then. An eased curve would
+ * put it somewhere else and shrink the window where the face is unreadable.
+ */
+.card[data-state='up'] .card__inner,
+.card[data-state='locked'] .card__inner {
+  transform: rotateY(180deg);
+}
+
+.card__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: var(--fm-wood);
+  overflow: hidden;
+}
+
+.card__face--front {
+  transform: rotateY(180deg);
+  background: var(--fm-canvas);
+}
+
+/* Matched cards read as recessed and desaturated so the live board stays
+   legible against them (SPEC.md §3.4). */
+.card[data-state='locked'] .card__face--front {
+  border-top-color: var(--fm-bevel-dark);
+  border-left-color: var(--fm-bevel-dark);
+  border-bottom-color: var(--fm-bevel-light);
+  border-right-color: var(--fm-bevel-light);
+  filter: saturate(0.6) brightness(0.9);
+}
+
+.card__art {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
 }
 
 .stall__base {

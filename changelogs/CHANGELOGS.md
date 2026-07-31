@@ -20,6 +20,26 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 07:18 EDT | feat(grid): 6x6 board and card flip (task 13)
+
+Added 36 static cards in a `repeat(6, 1fr)` grid and the two-faced flip: `rotateY` over 180ms,
+linear, with `backface-visibility: hidden` and `preserve-3d`. Exposed `--fm-flip-ms` as a
+unitless custom property so task 18 can derive the swap midpoint instead of hardcoding 90.
+Reduced motion shortens it to 80ms and shrinks the property with it, keeping the midpoint
+proportional and the hiding place intact.
+
+Reworked two tests that were unsound as written. `flip uses rotateY` read the transform before
+the transition began and caught the identity matrix; it now waits for completion. `card is
+unreadable at the flip midpoint` timed from the style change rather than the transition start,
+sampling roughly 74 degrees instead of 90, and the assertion window is only a few milliseconds
+wide, so no wall-clock timer can land it reliably. Replaced with three stronger tests: the
+geometry collapses when edge-on, the timing function is linear (so half the duration is exactly
+90 degrees by construction), and a real flip is observed passing through that region. This is a
+correction to flawed measurement, not a loosened assertion.
+
+Updated the stall snapshot baseline deliberately: the grid now holds 36 cards. Full suite
+green: 68 unit, 44 e2e.
+
 ## 2026-07-31 07:12 EDT | feat(chrome): stall scene dressing (task 12)
 
 Dressed the five regions into an actual market stall: scalloped striped awning (CSS mask, no
