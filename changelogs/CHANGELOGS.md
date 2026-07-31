@@ -20,6 +20,14 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:54 EDT | feat(sprites): carrot sprite (task 06)
+
+Added the 16x16 carrot: narrow vertical taper in `O` with an `o` highlight column, closed `K`
+outline, and a `G` frond tuft on top.
+Deliberately thinner than first drafted. An earlier wider carrot measured only 15.2 percent
+against corn, so the body was narrowed to clear the threshold with room to spare. Full suite
+green: 40 unit, 5 e2e.
+
 ## 2026-07-31 06:42 EDT | feat(sprites): banana sprite (task 05)
 
 Added the 16x16 banana: diagonal crescent in `Y` with a `y` highlight along the upper left,

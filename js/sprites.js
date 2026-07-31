@@ -125,3 +125,25 @@ registerSprite('banana', [
   '................',
   '................',
 ]);
+
+// Narrow vertical taper: widest under the frond, near a point at the bottom.
+// That taper is the signature. Corn (task 07) is its inverse, narrow on top and
+// flared at the base, which is what keeps the two apart at 44px.
+registerSprite('carrot', [
+  '................',
+  '......KKKK......',
+  '.....KGGGGK.....',
+  '.....KGGGGK.....',
+  '......KoOK......',
+  '......KoOK......',
+  '......KoOK......',
+  '......KoOK......',
+  '.......KOK......',
+  '.......KOK......',
+  '.......KOK......',
+  '.......KK.......',
+  '.......KK.......',
+  '.......KK.......',
+  '.......KK.......',
+  '................',
+]);
