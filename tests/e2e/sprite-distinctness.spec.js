@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Shared distinctness suite. Each of tasks 04 through 10 adds its sprite here.
 // With a single entry the pairwise check is vacuously true; it becomes the real
 // gate once a second sprite lands.
-const SPRITE_NAMES = ['apple', 'banana'];
+const SPRITE_NAMES = ['apple', 'banana', 'carrot'];
 
 // The size a card renders at on the smallest supported viewport (SPEC.md §3.2).
 const CARD_PX = 44;
