@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Farmer's Match</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!--
+      The five stall regions from SPEC.md §3.3, in order. Later tasks fill them:
+      12 dresses the chrome, 13 builds the grid, 17 the scoreboard, 21 the reset
+      button. The data-region hooks are the stable contract between those tasks,
+      so renaming one is a breaking change across several.
+    -->
+    <div class="stall">
+      <div class="stall__awning" data-region="awning"></div>
+
+      <header class="stall__signboard bevel" data-region="signboard"></header>
+
+      <div class="stall__scoreboard bevel" data-region="scoreboard"></div>
+
+      <main class="stall__grid" data-region="grid"></main>
+
+      <footer class="stall__base bevel" data-region="base"></footer>
+    </div>
+
+    <script type="module" src="js/sprites.js"></script>
+  </body>
+</html>

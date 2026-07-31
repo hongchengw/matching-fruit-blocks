@@ -20,6 +20,16 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 07:09 EDT | feat(chrome): page skeleton and base CSS (task 11)
+
+Added `index.html` with the five `data-region` stall containers in spec order, and
+`css/style.css` with 11 chrome custom properties, the raised/recessed bevel primitive at 3px,
+and the monospace type stack.
+Covered by 11 Playwright tests in `tests/e2e/page-structure.spec.js`. Two guard spec
+constraints rather than appearance: every script tag must be `type=module` (no bundler), and
+every request must be same-origin app files (no CDN fonts). Regions ship as empty containers;
+tasks 12, 13, 17, and 21 fill them. Full suite green: 68 unit, 18 e2e.
+
 ## 2026-07-31 07:01 EDT | feat(sprites): card back sprite (task 10)
 
 Added the 16x16 card back: full-bleed `B` crate slats with `b` highlight lines and a small

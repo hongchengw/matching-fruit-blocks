@@ -1,0 +1,103 @@
+/*
+ * Farmer's Match: base chrome. See SPEC.md §3.3 through §3.5.
+ *
+ * Chrome colors live here as custom properties. Sprite colors live in
+ * js/palette.js and are a separate concern; do not duplicate hex values across
+ * the two.
+ *
+ * No @import, no <link> to any external host, ever. If a pixel font is added it
+ * is base64-inlined here or self-hosted from the repo (SPEC.md §3.5, §11).
+ */
+
+:root {
+  /* Earth tones. Warm and handmade: the stall's trustworthiness is doing
+     psychological work (SPEC.md §2.10). */
+  --fm-ink: #2b1d17;
+  --fm-canvas: #d8c39a;
+  --fm-wood: #6b4526;
+  --fm-wood-dark: #4a2e18;
+  --fm-wood-light: #9c6b3f;
+  --fm-awning-a: #b03028;
+  --fm-awning-b: #f4ead8;
+  --fm-bevel-light: #c08a55;
+  --fm-bevel-dark: #3d2413;
+  --fm-lcd-bg: #24170f;
+  --fm-lcd-on: #f2d066;
+
+  --fm-bevel-width: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: clamp(8px, 3vw, 24px);
+  background: var(--fm-wood-dark);
+  color: var(--fm-ink);
+  /* No CDN fonts. A pixel face may be inlined later; the generic monospace
+     fallback must always terminate the stack. */
+  font-family: "Courier New", Courier, monospace;
+  -webkit-font-smoothing: none;
+}
+
+.stall {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Bevel primitive (SPEC.md §3.4). Light from the top left, so top and left are
+ * the lighter pair. Reused by cards, the scoreboard, and buttons; it is not a
+ * per-component style. The recessed modifier inverts it for locked cards and
+ * inset panels.
+ */
+.bevel {
+  border: var(--fm-bevel-width) solid var(--fm-bevel-dark);
+  border-top-color: var(--fm-bevel-light);
+  border-left-color: var(--fm-bevel-light);
+  border-bottom-color: var(--fm-bevel-dark);
+  border-right-color: var(--fm-bevel-dark);
+}
+
+.bevel--recessed {
+  border-top-color: var(--fm-bevel-dark);
+  border-left-color: var(--fm-bevel-dark);
+  border-bottom-color: var(--fm-bevel-light);
+  border-right-color: var(--fm-bevel-light);
+}
+
+/* Region placeholders. Task 12 dresses these into an actual stall. */
+.stall__awning {
+  min-height: 18px;
+  background: var(--fm-awning-a);
+}
+
+.stall__signboard {
+  background: var(--fm-wood);
+  color: var(--fm-awning-b);
+  padding: 6px 10px;
+}
+
+.stall__scoreboard {
+  background: var(--fm-wood);
+  color: var(--fm-lcd-on);
+  padding: 6px 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.stall__grid {
+  background: var(--fm-wood-light);
+  min-height: 40px;
+  padding: 6px;
+}
+
+.stall__base {
+  background: var(--fm-wood);
+  padding: 6px 10px;
+  min-height: 24px;
+}
