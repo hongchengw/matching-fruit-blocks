@@ -102,3 +102,26 @@ registerSprite('apple', [
   '.....KKKKKK.....',
   '................',
 ]);
+
+// A pronounced diagonal crescent, the strongest silhouette in the set and the
+// reference the other five are measured against. Keep the curve: a nearly
+// straight banana reads as a carrot at 44px. Highlight runs along the upper
+// left, matching the light-from-top-left convention the bevels use.
+registerSprite('banana', [
+  '................',
+  '................',
+  '.........KKK....',
+  '........KBBBK...',
+  '.......KyYYYK...',
+  '......KyYYYK....',
+  '.....KyYYYK.....',
+  '....KyYYYK......',
+  '...KyYYYK.......',
+  '..KyYYYK........',
+  '..KyYYK.........',
+  '..KyYYK.........',
+  '...KKyYK........',
+  '.....KKKK.......',
+  '................',
+  '................',
+]);

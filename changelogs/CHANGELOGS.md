@@ -20,6 +20,14 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:42 EDT | feat(sprites): banana sprite (task 05)
+
+Added the 16x16 banana: diagonal crescent in `Y` with a `y` highlight along the upper left,
+closed `K` outline, and a `B` tip.
+Extended both shared suites to cover it. The pairwise silhouette check is no longer vacuous:
+apple against banana measures 22.7 percent mask difference against a 12 percent threshold.
+Full suite green: 34 unit, 5 e2e.
+
 ## 2026-07-31 06:40 EDT | feat(sprites): apple sprite (task 04)
 
 Added the 16x16 apple to `js/sprites.js`: round `R` body with an `r` highlight, closed `K`
