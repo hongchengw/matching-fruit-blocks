@@ -20,6 +20,15 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:40 EDT | feat(sprites): apple sprite (task 04)
+
+Added the 16x16 apple to `js/sprites.js`: round `R` body with an `r` highlight, closed `K`
+outline, `B`-free all-`K` stem, and a `G` leaf swept right.
+Introduced the two shared suites the remaining sprite tasks extend:
+`tests/unit/sprites-shape.test.js` (6 tests: grid shape, palette coverage, non-blank, 1px
+margin, closed outline) and `tests/e2e/sprite-distinctness.spec.js` (44px legibility plus a
+pairwise alpha-mask comparison that discards color). Full suite green: 28 unit, 5 e2e.
+
 ## 2026-07-31 06:36 EDT | feat(sprites): sprite registry and renderer (task 03)
 
 Added `js/sprites.js` with `SPRITES`, `SPRITE_SIZE`, `registerSprite` (validates the 16x16

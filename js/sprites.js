@@ -72,3 +72,33 @@ export function drawSprite(canvas, name) {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Produce
+//
+// Every fruit carries a closed K outline and a 1px transparent margin. The
+// silhouette has to do the identifying work: cards render around 44px on the
+// smallest supported viewport, where shading is barely legible but outline
+// still reads (SPEC.md §3.2).
+// ---------------------------------------------------------------------------
+
+// Round body with a stem and a single leaf swept to the right. That asymmetric
+// stem-and-leaf is the apple's signature and task 08's tomato must not reuse it.
+registerSprite('apple', [
+  '................',
+  '................',
+  '..........KKK...',
+  '.......KKKGGGK..',
+  '.......KK.KGK...',
+  '....KKKKKKKK....',
+  '...KrrRRRRRRK...',
+  '..KrrRRRRRRRRK..',
+  '..KrRRRRRRRRRK..',
+  '..KRRRRRRRRRRK..',
+  '..KRRRRRRRRRRK..',
+  '...KRRRRRRRRK...',
+  '...KRRRRRRRRK...',
+  '....KRRRRRRK....',
+  '.....KKKKKK.....',
+  '................',
+]);
