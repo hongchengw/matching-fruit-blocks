@@ -70,6 +70,52 @@ test('sprites render legibly at 44px', async ({ page }) => {
   }
 });
 
+test('card back is distinct from every fruit at 44px', async ({ page }) => {
+  // Unlike the fruit pairs, this comparison KEEPS color. The back is a
+  // full-bleed texture, so its alpha mask is uniformly opaque and an
+  // alpha-only check would say nothing useful about how it actually looks.
+  await page.goto('/');
+  const diffs = await page.evaluate(
+    async ({ names, size }) => {
+      const { drawSprite } = await import('/js/sprites.js');
+
+      const rgba = (name) => {
+        const native = document.createElement('canvas');
+        drawSprite(native, name);
+        const scaled = document.createElement('canvas');
+        scaled.width = size;
+        scaled.height = size;
+        const ctx = scaled.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(native, 0, 0, size, size);
+        return ctx.getImageData(0, 0, size, size).data;
+      };
+
+      const back = rgba('back');
+      const out = {};
+      for (const name of names) {
+        const fruit = rgba(name);
+        let differing = 0;
+        for (let i = 0; i < back.length; i += 4) {
+          const same =
+            back[i] === fruit[i] &&
+            back[i + 1] === fruit[i + 1] &&
+            back[i + 2] === fruit[i + 2] &&
+            back[i + 3] === fruit[i + 3];
+          if (!same) differing += 1;
+        }
+        out[name] = differing / (back.length / 4);
+      }
+      return out;
+    },
+    { names: SPRITE_NAMES, size: CARD_PX },
+  );
+
+  for (const name of SPRITE_NAMES) {
+    expect(diffs[name], `card back is too close to ${name}`).toBeGreaterThan(0.5);
+  }
+});
+
 test('tomato and apple differ by silhouette alone', async ({ page }) => {
   // The highest-risk pair in the set: two round red things. SPEC.md §3.2 is
   // explicit that they must differ in outline, not merely in shading.

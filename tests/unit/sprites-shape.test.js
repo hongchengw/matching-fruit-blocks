@@ -3,7 +3,7 @@ import { SPRITES, SPRITE_SIZE } from '../../js/sprites.js';
 import { PALETTE, isTransparent } from '../../js/palette.js';
 
 // Shared shape suite. Each of tasks 04 through 10 adds its sprite here.
-const SHAPE_SPRITES = ['apple', 'banana', 'carrot', 'corn', 'tomato', 'pumpkin'];
+const SHAPE_SPRITES = ['apple', 'banana', 'carrot', 'corn', 'tomato', 'pumpkin', 'back'];
 
 // The card back (task 10) is a full-bleed texture with no transparent pixels,
 // so the outline rule does not apply to it. Exempt it rather than loosening
@@ -80,5 +80,37 @@ describe.each(SHAPE_SPRITES)('sprite %s', (name) => {
         }
       }
     }
+  });
+});
+
+describe('card back', () => {
+  it('is fully opaque', () => {
+    // Unlike the fruits, the back fills its whole card. A transparent gap would
+    // show the card frame through and break the face-down illusion.
+    for (const row of SPRITES.back) {
+      expect(row).not.toContain('.');
+    }
+  });
+
+  it('is a single shared entry with no per-card variants', () => {
+    // Load-bearing. Any per-card variation in the back would let a player track
+    // a specific card's position through the silent reshuffle (SPEC.md §7.3),
+    // which reopens the tally detection channel.
+    const backLike = Object.keys(SPRITES).filter((n) => n !== 'back' && /^back/i.test(n));
+    expect(backLike).toEqual([]);
+    expect(SPRITES.back).toBeDefined();
+  });
+
+  it('is exempt from the outline and margin rules, not loosening them', () => {
+    // The exemption must be explicit, so the fruits keep their strict checks.
+    expect(OUTLINE_EXEMPT).toContain('back');
+    expect(OUTLINE_EXEMPT).not.toContain('apple');
+  });
+
+  it('is low contrast so it stays unmemorable', () => {
+    // The back's job is to be forgettable. A distinctive back would let a
+    // player fingerprint card positions across reshuffles.
+    const chars = new Set(SPRITES.back.flatMap((row) => [...row]));
+    expect(chars.size).toBeLessThanOrEqual(3);
   });
 });
