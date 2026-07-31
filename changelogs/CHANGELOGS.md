@@ -20,6 +20,15 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:36 EDT | feat(sprites): sprite registry and renderer (task 03)
+
+Added `js/sprites.js` with `SPRITES`, `SPRITE_SIZE`, `registerSprite` (validates the 16x16
+grid shape at registration), and `drawSprite` (native-resolution single-pass paint, sets
+`image-rendering: pixelated`).
+Covered by 12 unit tests against a mocked canvas and 2 Playwright tests doing `getImageData`
+probes and an unsmoothed-upscale check. `drawSprite` paints exactly once, which task 18's
+midpoint swap depends on. Registry ships empty; tasks 04-10 populate it.
+
 ## 2026-07-31 06:34 EDT | feat(palette): earth-tone sprite palette (task 02)
 
 Added `js/palette.js`: a frozen char-keyed palette of 12 earth tones plus the `TRANSPARENT`
