@@ -147,3 +147,26 @@ registerSprite('carrot', [
   '.......KK.......',
   '................',
 ]);
+
+// Upright cob with husk leaves flaring down and out at the base. The flare is
+// the inverse of the carrot's taper, which is what separates them at 44px
+// despite both being tall and centered. Kernels stay at 1px granularity: larger
+// blocks turn to mud when downscaled and the cob loses its texture read.
+registerSprite('corn', [
+  '................',
+  '................',
+  '......KKKK......',
+  '.....KYyYyK.....',
+  '.....KyYyYK.....',
+  '.....KYyYyK.....',
+  '.....KyYyYK.....',
+  '.....KYyYyK.....',
+  '.....KyYyYK.....',
+  '.....KYyYyK.....',
+  '....KGyYyYGK....',
+  '...KGGYyYyGGK...',
+  '..KGGGyYyYGGGK..',
+  '.KKKKKKKKKKKKKK.',
+  '................',
+  '................',
+]);

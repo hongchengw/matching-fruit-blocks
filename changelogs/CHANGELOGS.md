@@ -20,6 +20,14 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:55 EDT | feat(sprites): corn sprite (task 07)
+
+Added the 16x16 corn: upright `Y`/`y` kernel-checkered cob with a closed `K` outline and `G`
+husk leaves flaring down and out at the base.
+The flare is the inverse of the carrot's taper, which is what keeps the two apart at 44px.
+Kernels held at 1px granularity so the texture survives downscaling. Full suite green: 46
+unit, 5 e2e.
+
 ## 2026-07-31 06:54 EDT | feat(sprites): carrot sprite (task 06)
 
 Added the 16x16 carrot: narrow vertical taper in `O` with an `o` highlight column, closed `K`
