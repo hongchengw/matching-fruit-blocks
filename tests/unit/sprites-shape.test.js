@@ -3,7 +3,7 @@ import { SPRITES, SPRITE_SIZE } from '../../js/sprites.js';
 import { PALETTE, isTransparent } from '../../js/palette.js';
 
 // Shared shape suite. Each of tasks 04 through 10 adds its sprite here.
-const SHAPE_SPRITES = ['apple'];
+const SHAPE_SPRITES = ['apple', 'banana'];
 
 // The card back (task 10) is a full-bleed texture with no transparent pixels,
 // so the outline rule does not apply to it. Exempt it rather than loosening
