@@ -20,6 +20,14 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:59 EDT | feat(sprites): pumpkin sprite (task 09)
+
+Added the 16x16 pumpkin: widest sprite in the set, `O` body with `o` vertical ribs, closed `K`
+outline, and a short thick `B` stem.
+Completes the six fruits, so the pairwise silhouette matrix now runs all 15 pairs. Worst pair
+is apple/pumpkin at 21.9 percent against a 12 percent threshold; every other pair is above 22
+percent. Full suite green: 58 unit, 6 e2e.
+
 ## 2026-07-31 06:57 EDT | feat(sprites): tomato sprite (task 08)
 
 Added the 16x16 tomato: compact squat `R` body with an `r` highlight, closed `K` outline, and

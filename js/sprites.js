@@ -197,3 +197,29 @@ registerSprite('tomato', [
   '................',
   '................',
 ]);
+
+// The widest sprite in the set: broader than it is tall, with vertical rib
+// highlights and a short thick stem.
+//
+// Width and the stubby stem carry the silhouette. The ribs are interior detail
+// and contribute nothing to the alpha mask. Sitting high in the frame with a
+// flat wide shoulder is what separates it from the apple, which is the closest
+// remaining pair at 21.9 percent.
+registerSprite('pumpkin', [
+  '................',
+  '.......KKK......',
+  '.......KBK......',
+  '.......KBK......',
+  '..KKKKKoOOKKKK..',
+  '.KOoOOOoOOOoOOK.',
+  '.KOoOOOoOOOoOOK.',
+  '.KOoOOOoOOOoOOK.',
+  '.KOoOOOoOOOoOOK.',
+  '.KOoOOOoOOOoOOK.',
+  '.KOoOOOoOOOoOOK.',
+  '..KKOOOoOOOoKK..',
+  '....KKKKKKKK....',
+  '................',
+  '................',
+  '................',
+]);
