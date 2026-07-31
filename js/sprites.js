@@ -170,3 +170,30 @@ registerSprite('corn', [
   '................',
   '................',
 ]);
+
+// Compact and squat, with a five-point calyx sitting flat across the top.
+//
+// The riskiest pair in the set is apple/tomato: both are round and red, and the
+// distinctness check discards color entirely. So the outline carries it. The
+// tomato is smaller, wider than it is tall, and has a horizontal calyx spread
+// rather than the apple's stem-and-single-leaf. A recolored apple fails the
+// dedicated test in tests/e2e/sprite-distinctness.spec.js, which is how that
+// test earns its place.
+registerSprite('tomato', [
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '......KKKK......',
+  '....KKGGGGKK....',
+  '...KrrRRRRRRK...',
+  '...KrRRRRRRRK...',
+  '...KRRRRRRRRK...',
+  '....KKRRRRKK....',
+  '......KKKK......',
+  '................',
+  '................',
+  '................',
+]);

@@ -20,6 +20,15 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:57 EDT | feat(sprites): tomato sprite (task 08)
+
+Added the 16x16 tomato: compact squat `R` body with an `r` highlight, closed `K` outline, and
+a five-point `G` calyx spread flat across the top.
+Added the dedicated `tomato and apple differ by silhouette alone` test, which compares binary
+alpha masks with color discarded. Verified it discriminates: a placeholder tomato that was
+just a recolored apple failed it with the intended message before the real sprite landed.
+Apple against tomato measures 23.8 percent. Full suite green: 52 unit, 6 e2e.
+
 ## 2026-07-31 06:55 EDT | feat(sprites): corn sprite (task 07)
 
 Added the 16x16 corn: upright `Y`/`y` kernel-checkered cob with a closed `K` outline and `G`
