@@ -70,16 +70,56 @@ body {
   border-right-color: var(--fm-bevel-light);
 }
 
-/* Region placeholders. Task 12 dresses these into an actual stall. */
+/*
+ * Awning: striped canvas with a scalloped lower edge. Pure CSS, no image asset
+ * (SPEC.md §11 forbids runtime network requests).
+ */
 .stall__awning {
-  min-height: 18px;
-  background: var(--fm-awning-a);
+  min-height: 26px;
+  background-color: var(--fm-awning-a);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--fm-awning-a) 0 12px,
+    var(--fm-awning-b) 12px 24px
+  );
+  /* Scallops: a row of half-circles punched out of the bottom edge. */
+  mask-image: radial-gradient(circle 6px at 6px 100%, transparent 0 6px, #000 6px);
+  mask-size: 12px 100%;
+  mask-repeat: repeat-x;
+  -webkit-mask-image: radial-gradient(circle 6px at 6px 100%, transparent 0 6px, #000 6px);
+  -webkit-mask-size: 12px 100%;
+  -webkit-mask-repeat: repeat-x;
 }
 
 .stall__signboard {
   background: var(--fm-wood);
   color: var(--fm-awning-b);
-  padding: 6px 10px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signboard__title {
+  margin: 0;
+  font-size: clamp(14px, 4vw, 22px);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  text-shadow: 2px 2px 0 var(--fm-bevel-dark);
+}
+
+.signboard__mute,
+.reset-button {
+  background: var(--fm-wood-light);
+  color: var(--fm-ink);
+  font: inherit;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  padding: 4px 10px;
+  min-height: 40px;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
 .stall__scoreboard {
@@ -90,14 +130,37 @@ body {
   letter-spacing: 2px;
 }
 
+/* Crate slats behind the cards. */
 .stall__grid {
-  background: var(--fm-wood-light);
+  background-color: var(--fm-wood-light);
+  background-image: repeating-linear-gradient(
+    180deg,
+    var(--fm-wood-light) 0 8px,
+    var(--fm-wood) 8px 10px
+  );
   min-height: 40px;
   padding: 6px;
 }
 
 .stall__base {
   background: var(--fm-wood);
-  padding: 6px 10px;
+  padding: 8px 10px;
   min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Hanging price tags, pinned to the shelf they dangle from. */
+.price-tag {
+  background: var(--fm-awning-b);
+  color: var(--fm-ink);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 8px;
+  border: 2px solid var(--fm-bevel-dark);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+  padding-bottom: 10px;
 }

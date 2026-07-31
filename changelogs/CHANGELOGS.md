@@ -20,6 +20,15 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 07:12 EDT | feat(chrome): stall scene dressing (task 12)
+
+Dressed the five regions into an actual market stall: scalloped striped awning (CSS mask, no
+image asset), signboard with title and mute toggle, crate-slat grid background, and a wooden
+base with two hanging price tags and the reset button.
+Covered by 10 Playwright tests including a warm-tone check that encodes the SPEC.md §2.10
+rationale, plus a committed visual snapshot baseline at 800x900. Mute and reset are inert
+markup; tasks 14 and 21 wire them. Full suite green: 68 unit, 28 e2e.
+
 ## 2026-07-31 07:09 EDT | feat(chrome): page skeleton and base CSS (task 11)
 
 Added `index.html` with the five `data-region` stall containers in spec order, and
