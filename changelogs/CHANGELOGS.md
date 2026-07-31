@@ -20,6 +20,14 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-07-31 06:34 EDT | feat(palette): earth-tone sprite palette (task 02)
+
+Added `js/palette.js`: a frozen char-keyed palette of 12 earth tones plus the `TRANSPARENT`
+sentinel, with `isTransparent` and a throwing `colorFor` lookup.
+Covered by 8 unit tests in `tests/unit/palette.test.js`, including the earth-tone hue and
+saturation bounds and the uppercase-base / lowercase-highlight lightness relationship. Full
+suite green.
+
 ## 2026-07-31 06:33 EDT | feat(tooling): vitest and playwright scaffold (task 01)
 
 Added `package.json` (devDependencies only, `type: module`), `vitest.config.js` with the
