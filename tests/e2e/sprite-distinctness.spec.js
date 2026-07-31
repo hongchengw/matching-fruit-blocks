@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Shared distinctness suite. Each of tasks 04 through 10 adds its sprite here.
 // With a single entry the pairwise check is vacuously true; it becomes the real
 // gate once a second sprite lands.
-const SPRITE_NAMES = ['apple', 'banana', 'carrot', 'corn'];
+const SPRITE_NAMES = ['apple', 'banana', 'carrot', 'corn', 'tomato'];
 
 // The size a card renders at on the smallest supported viewport (SPEC.md §3.2).
 const CARD_PX = 44;
@@ -68,6 +68,28 @@ test('sprites render legibly at 44px', async ({ page }) => {
     );
     expect(renderedRatio, `${name} rendered blank`).toBeGreaterThan(0.05);
   }
+});
+
+test('tomato and apple differ by silhouette alone', async ({ page }) => {
+  // The highest-risk pair in the set: two round red things. SPEC.md §3.2 is
+  // explicit that they must differ in outline, not merely in shading.
+  //
+  // This assertion deliberately throws away color. A tomato that is just a
+  // recolored apple would be indistinguishable to a colorblind player and
+  // indistinguishable at a glance to everyone else, so hue must not be allowed
+  // to carry the difference.
+  const rendered = await renderAll(page, ['apple', 'tomato']);
+  const a = rendered.apple.mask;
+  const b = rendered.tomato.mask;
+
+  let differing = 0;
+  for (let k = 0; k < a.length; k += 1) if (a[k] !== b[k]) differing += 1;
+  const ratio = differing / a.length;
+
+  expect(
+    ratio,
+    'tomato is too close to apple in silhouette; change the outline, not the shading',
+  ).toBeGreaterThan(SILHOUETTE_THRESHOLD);
 });
 
 test('every pair of sprites is distinct at 44px', async ({ page }) => {
