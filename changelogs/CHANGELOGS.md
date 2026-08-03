@@ -20,7 +20,21 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
-## 2026-08-03 05:04 EDT | feat(deck): 36-card deck and Fisher-Yates shuffle (task 15)
+## 2026-08-03 05:06 EDT | feat(loop): honest game loop (task 16)
+
+Added the state machine to `js/game.js`: one guarded `flip` entry point, match locking, the
+1000ms flip-back, and the `busy` input lock. The machine never touches the DOM; `mount` renders
+from an `onChange` callback, which is what keeps it testable under jsdom with no markup.
+The game is now playable and completely fair. Tasks 18 through 20 layer the rig on top without
+changing this loop's shape, so the rigged and honest timings are identical for free. The
+mismatch call site for task 20's reshuffle is marked but deliberately not stubbed.
+Wired the previously inert mute button here, since this is where the DOM entry point now lives.
+Covered by 12 unit tests and 5 e2e including a full 18-pair playthrough that proves the honest
+phase is genuinely winnable. Playwright reads the board through a `?fm-test=1` debug hook that
+is absent in normal play; a global listing every card's fruit would be a detection channel of
+its own. Full suite green: 109 unit, 49 e2e.
+
+## 2026-08-03 04:59 EDT | feat(deck): 36-card deck and Fisher-Yates shuffle (task 15)
 
 Added `js/game.js` with the pure deck helpers: `shuffle` (copies, walks down with an inclusive
 bound so the last element can move, injectable random source) and `buildDeck` (six of each
