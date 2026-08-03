@@ -1,0 +1,265 @@
+import { test, expect } from '@playwright/test';
+
+// SPEC.md §9. Every interaction has to work by touch and by keyboard, and the
+// reduced-motion path has to stay playable without opening the visual channel.
+
+const TEST_PAGE = '/?fm-test=1';
+
+/**
+ * WCAG contrast helpers, installed on `window` rather than declared inline.
+ * An `eval`ed `const` stays inside the eval's own scope under module strictness
+ * and is not visible to the rest of the evaluated function.
+ */
+const CONTRAST_HELPERS = `
+  const channel = (v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  const luminance = (rgb) => {
+    const [r, g, b] = rgb.match(/[\\d.]+/g).map(Number);
+    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  };
+  window.__ratio = (a, b) => {
+    const [hi, lo] = luminance(a) > luminance(b) ? [a, b] : [b, a];
+    return (luminance(hi) + 0.05) / (luminance(lo) + 0.05);
+  };
+  /** Walk up for the nearest element that actually paints a background. */
+  window.__backdrop = (el) => {
+    let node = el;
+    while (node && node !== document.documentElement) {
+      const bg = getComputedStyle(node).backgroundColor;
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+      node = node.parentElement;
+    }
+    return getComputedStyle(document.body).backgroundColor;
+  };
+`;
+
+const findPair = (page) =>
+  page.evaluate(() => {
+    const down = window.__fmTest.cards().filter((c) => c.state === 'down');
+    for (let i = 0; i < down.length; i += 1) {
+      for (let j = i + 1; j < down.length; j += 1) {
+        if (down[i].fruit === down[j].fruit) return [down[i].id, down[j].id];
+      }
+    }
+    return null;
+  });
+
+test.describe('touch', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 800 } });
+
+  test('plays fully by touch', async ({ page }) => {
+    await page.goto('/?fm-test=1&fm-rig=999');
+
+    const [a, b] = await findPair(page);
+    await page.locator(`[data-card="${a}"]`).tap();
+    await page.locator(`[data-card="${b}"]`).tap();
+    await expect(page.locator(`[data-card="${a}"]`)).toHaveAttribute('data-state', 'locked');
+
+    const [c, d] = await page.evaluate(() => {
+      const down = window.__fmTest.cards().filter((x) => x.state === 'down');
+      const first = down[0];
+      return [first.id, down.find((x) => x.fruit !== first.fruit).id];
+    });
+    await page.locator(`[data-card="${c}"]`).tap();
+    await page.locator(`[data-card="${d}"]`).tap();
+    await expect(page.locator(`[data-card="${c}"]`)).toHaveAttribute('data-state', 'down', {
+      timeout: 3000,
+    });
+  });
+
+  test('suppresses double-tap zoom on every control', async ({ page }) => {
+    await page.goto('/');
+    const values = await page.evaluate(() =>
+      [...document.querySelectorAll('button, [data-card]')].map(
+        (el) => getComputedStyle(el).touchAction,
+      ),
+    );
+    expect(values.length).toBeGreaterThan(36);
+    expect(values.every((v) => v === 'manipulation')).toBe(true);
+  });
+});
+
+test('exposes no hover-only affordance', async ({ page }) => {
+  // Every :hover rule needs a :focus or :active counterpart, or the state it
+  // communicates is invisible to touch and keyboard users.
+  await page.goto('/');
+  const orphans = await page.evaluate(() => {
+    const selectors = [];
+    for (const sheet of document.styleSheets) {
+      let rules;
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        continue;
+      }
+      for (const rule of rules) {
+        if (rule.selectorText) selectors.push(rule.selectorText);
+      }
+    }
+    const hovers = selectors.filter((s) => s.includes(':hover'));
+    return hovers.filter((s) => {
+      const base = s.replaceAll(':hover', '');
+      return !selectors.some(
+        (other) =>
+          other !== s &&
+          (other.replaceAll(':focus-visible', '').replaceAll(':focus', '') === base ||
+            other.replaceAll(':active', '') === base),
+      );
+    });
+  });
+  expect(orphans).toEqual([]);
+});
+
+test('is fully keyboard playable', async ({ page }) => {
+  await page.goto('/?fm-test=1&fm-rig=999');
+
+  // Tab reaches the cards at all.
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Tab');
+  const reached = await page.evaluate(() => document.activeElement?.dataset?.card !== undefined);
+  expect(reached).toBe(true);
+
+  // A full match, made without a mouse: Enter on one card, Space on its twin.
+  const [a, b] = await findPair(page);
+  await page.locator(`[data-card="${a}"]`).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`[data-card="${a}"]`)).toHaveAttribute('data-state', 'up');
+
+  await page.locator(`[data-card="${b}"]`).focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator(`[data-card="${b}"]`)).toHaveAttribute('data-state', 'locked');
+  expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(1);
+});
+
+test('always shows where the focus is', async ({ page }) => {
+  await page.goto('/');
+  const results = await page.evaluate((helpers) => {
+    eval(helpers);
+    const out = [];
+    for (const el of document.querySelectorAll('button')) {
+      el.focus();
+      const cs = getComputedStyle(el);
+      out.push({
+        tag: el.className,
+        style: cs.outlineStyle,
+        width: parseFloat(cs.outlineWidth),
+        contrast: window.__ratio(cs.outlineColor, window.__backdrop(el)),
+      });
+    }
+    return out;
+  }, CONTRAST_HELPERS);
+
+  expect(results.length).toBeGreaterThan(36);
+  for (const result of results) {
+    expect(result.style, `${result.tag} focus outline`).not.toBe('none');
+    expect(result.width, `${result.tag} focus width`).toBeGreaterThanOrEqual(2);
+    // WCAG 2.2 non-text contrast for a focus indicator.
+    expect(result.contrast, `${result.tag} focus contrast`).toBeGreaterThanOrEqual(3);
+  }
+});
+
+test('meets WCAG AA text contrast', async ({ page }) => {
+  await page.goto('/');
+  const measured = await page.evaluate((helpers) => {
+    eval(helpers);
+    const targets = [
+      ['scoreboard digits', '[data-readout="matches"]'],
+      ['score digits', '[data-readout="score"]'],
+      ['mute button', '[data-control="mute"]'],
+      ['reset button', '[data-control="reset"]'],
+      ['price tag', '.price-tag'],
+      ['title', '.signboard__title'],
+    ];
+    return targets.map(([name, selector]) => {
+      const el = document.querySelector(selector);
+      const cs = getComputedStyle(el);
+      return {
+        name,
+        size: parseFloat(cs.fontSize),
+        bold: Number(cs.fontWeight) >= 700,
+        contrast: window.__ratio(cs.color, window.__backdrop(el)),
+      };
+    });
+  }, CONTRAST_HELPERS);
+
+  for (const item of measured) {
+    // AA: 3:1 for large text (18.66px bold or 24px), 4.5:1 otherwise.
+    const large = item.size >= 24 || (item.bold && item.size >= 18.66);
+    const required = large ? 3 : 4.5;
+    expect(item.contrast, `${item.name} contrast ${item.contrast.toFixed(2)}`).toBeGreaterThanOrEqual(
+      required,
+    );
+  }
+});
+
+test('plays through the phase boundary under reduced motion', async ({ page }) => {
+  // The §9 warning verified in a real playthrough: the flip is shortened, never
+  // removed, so the rig still has somewhere to hide.
+  test.setTimeout(120_000);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(TEST_PAGE);
+
+  for (let i = 0; i < 5; i += 1) {
+    const pair = await findPair(page);
+    await page.locator(`[data-card="${pair[0]}"]`).click();
+    await page.locator(`[data-card="${pair[1]}"]`).click();
+    await page.waitForFunction(() => window.__fmTest.state().busy === false);
+    // The lock releases while the cards are still rotating back. Sampling the
+    // next flip through that tail would read the previous attempt's face.
+    await page.waitForTimeout(250);
+  }
+  expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(10);
+  expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(true);
+
+  // Still playable, and still hidden.
+  for (let i = 0; i < 3; i += 1) {
+    const [a, b] = await findPair(page);
+    const capture = await page.evaluate(
+      async ({ a, b }) => {
+        const { drawSprite } = await import('/js/sprites.js');
+        const signature = (canvas) =>
+          canvas.getContext('2d').getImageData(0, 0, 16, 16).data.join(',');
+
+        document.querySelector(`[data-card="${a}"]`).click();
+        const element = document.querySelector(`[data-card="${b}"]`);
+        const inner = element.querySelector('.card__inner');
+        const canvas = element.querySelector('.card__face--front canvas');
+
+        const frames = [];
+        let running = true;
+        const sample = () => {
+          const m = getComputedStyle(inner).transform;
+          const cos = m.startsWith('matrix') ? Number(m.slice(m.indexOf('(') + 1).split(',')[0]) : 1;
+          frames.push({ cos, sig: signature(canvas) });
+          if (running) requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+        element.click();
+        await new Promise((r) => setTimeout(r, 400));
+        running = false;
+
+        const committed = window.__fmTest.cards().find((c) => c.id === b).fruit;
+        const reference = document.createElement('canvas');
+        drawSprite(reference, committed);
+        const final = signature(reference);
+        return {
+          readable: frames.filter((f) => f.cos < -0.35).length,
+          leaked: frames.filter((f) => f.cos < -0.35 && f.sig !== final).length,
+        };
+      },
+      { a, b },
+    );
+
+    expect(capture.readable).toBeGreaterThan(0);
+    expect(capture.leaked).toBe(0);
+    await page.waitForFunction(() => window.__fmTest.state().busy === false);
+    // The lock releases while the cards are still rotating back. Sampling the
+    // next flip through that tail would read the previous attempt's face.
+    await page.waitForTimeout(250);
+  }
+
+  expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+});
