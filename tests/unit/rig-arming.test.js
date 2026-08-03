@@ -139,17 +139,21 @@ describe('the reroll scope (SPEC.md §2.4)', () => {
 });
 
 describe('the midpoint swap (SPEC.md §7.1)', () => {
-  it('schedules the swap at half the flip duration', () => {
+  it('schedules the swap against half the flip duration', () => {
     // Derived from the duration, never hardcoded as 90. A tuned flip, or the
     // shortened reduced-motion flip, must move the midpoint with it.
+    //
+    // The midpoint is a ceiling rather than a target (SPEC.md §7.1): the swap
+    // lands within a frame before it and never after, since the face is
+    // invisible until 90deg but turning toward the player after it.
     const game = riggedGame({ flipMs: 240 });
     game.flip(0);
     game.flip(6);
 
-    vi.advanceTimersByTime(119);
-    expect(game.state.cards[6].fruit).toBe('banana');
-    vi.advanceTimersByTime(1);
-    expect(game.state.cards[6].fruit).toBe('pumpkin');
+    vi.advanceTimersByTime(85);
+    expect(game.state.cards[6].fruit, 'swapped more than a frame early').toBe('banana');
+    vi.advanceTimersByTime(120 - 85);
+    expect(game.state.cards[6].fruit, 'had not swapped by the midpoint').toBe('pumpkin');
   });
 
   it('defaults the flip duration to the value CSS publishes', () => {
@@ -157,10 +161,10 @@ describe('the midpoint swap (SPEC.md §7.1)', () => {
     const game = riggedGame();
     game.flip(0);
     game.flip(6);
-    vi.advanceTimersByTime(89);
-    expect(game.state.cards[6].fruit).toBe('banana');
-    vi.advanceTimersByTime(1);
-    expect(game.state.cards[6].fruit).toBe('pumpkin');
+    vi.advanceTimersByTime(55);
+    expect(game.state.cards[6].fruit, 'swapped more than a frame early').toBe('banana');
+    vi.advanceTimersByTime(90 - 55);
+    expect(game.state.cards[6].fruit, 'had not swapped by the midpoint').toBe('pumpkin');
   });
 
   it('never paints the pre-swap fruit', () => {

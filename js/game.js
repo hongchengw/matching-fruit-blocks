@@ -189,12 +189,21 @@ export function readFlipMs() {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_FLIP_MS;
 }
 
+/** One display frame at 60Hz, near enough. */
+const FRAME_MS = 1000 / 60;
+
 /**
  * When the card is edge-on: half the rotation, so a 1px sliver with no
  * readable face (SPEC.md §2.3). The only frame-perfect hiding place there is.
+ *
+ * A ceiling, not a target (SPEC.md §7.1). The deadline backs off by a frame so
+ * that ordinary timer jitter cannot push the swap past 90deg, where the face
+ * has started turning toward the player. Early is invisible, because the front
+ * face is `backface-visibility: hidden` for the whole first half of the
+ * rotation. Late is not.
  */
 export function flipMidpoint(flipMs) {
-  return flipMs / 2;
+  return Math.max(0, flipMs / 2 - FRAME_MS);
 }
 
 /** How many unmatched cards currently carry each fruit. */
@@ -272,6 +281,7 @@ export function createGame({
 
   const cardAt = (id) => state.cards.find((card) => card.id === id);
 
+  /** First card of an attempt: always honest, always its own fruit. */
   function reveal(card) {
     card.state = 'up';
     card.lastShown = card.fruit;
@@ -321,20 +331,23 @@ export function createGame({
     state.busy = true;
     const first = cardAt(state.first);
 
-    if (state.rigged) {
-      revealRigged(card, first);
+    // Captured before the outcome is resolved: a match increments `matches`,
+    // which could flip the getter true between here and the swap deadline and
+    // reroll a card that had already matched.
+    const rigged = state.rigged;
+
+    revealSecond(card, first, rigged);
+
+    if (rigged) {
       // Always a mismatch by construction, so the outcome is settled now rather
       // than after the swap. The cue and the 1000ms timer therefore start at
       // the same point in the attempt as they do honestly, and the two phases
       // are indistinguishable by ear or by stopwatch.
       resolveMismatch(first, card);
+    } else if (first.fruit === card.fruit) {
+      resolveMatch(first, card);
     } else {
-      reveal(card);
-      if (first.fruit === card.fruit) {
-        resolveMatch(first, card);
-      } else {
-        resolveMismatch(first, card);
-      }
+      resolveMismatch(first, card);
     }
 
     onChange(state);
@@ -352,17 +365,53 @@ export function createGame({
    * fires once the card is face-on again and would guarantee the very frame
    * this seals off.
    */
-  function revealRigged(card, first) {
+  /**
+   * Reveal the second card of an attempt (SPEC.md §7.1).
+   *
+   * The rotation starts immediately, but the face stays unpainted until the
+   * card is edge-on. Nothing ever draws the pre-swap fruit, so there is no
+   * pre-swap frame to catch: not a frame that is hard to see, none at all.
+   *
+   * Both phases go through here, and both paint at the same deadline. Only the
+   * choice of fruit differs, and that choice is invisible. Painting the honest
+   * card sooner would cost nothing on an engine that honors
+   * `backface-visibility`, but WebKit does not, and there an honest face that
+   * appeared instantly beside a rigged face that appeared half a flip later
+   * would be a tell that needs no screen recording to spot.
+   */
+  function revealSecond(card, first, rigged) {
     card.state = 'up';
     swapping = card.id;
     beepFlip();
 
-    setTimeout(() => {
-      card.fruit = reroll(card, first, state.cards);
+    const deadline = flipMidpoint(flipMs ?? readFlipMs());
+    let committed = false;
+
+    const commit = () => {
+      if (committed) return;
+      committed = true;
+      if (rigged) card.fruit = reroll(card, first, state.cards);
       card.lastShown = card.fruit;
       swapping = null;
       onChange(state);
-    }, flipMidpoint(flipMs ?? readFlipMs()));
+    };
+
+    // Two racing deadlines, and the swap takes whichever arrives first. The
+    // frame loop is the one that matters: it lands the swap on a real rendered
+    // frame rather than whenever the event loop gets around to a timer, which
+    // is what kept a shortened flip from overshooting 90deg. The timer is the
+    // fallback for when frames are not being served at all, such as a
+    // backgrounded tab.
+    setTimeout(commit, deadline);
+    if (typeof requestAnimationFrame === 'function') {
+      const started = performance.now();
+      const tick = () => {
+        if (committed) return;
+        if (performance.now() - started >= deadline) commit();
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
   }
 
   /**
@@ -405,26 +454,34 @@ export function createGame({
  * Task 18 changes when that read happens, not how, which is why nothing here
  * caches the drawn fruit.
  */
-function renderCard(element, card, blankFront) {
+function renderCard(element, card, blankFront, flipMs) {
+  const previous = element.dataset.state;
   element.dataset.state = card.state;
   const [back, front] = element.querySelectorAll('.card__art');
   drawSprite(back, CARD_BACK);
 
-  // Mid-swap: the identity is not decided yet, so the face carries no sprite at
-  // all. This is what keeps the pre-swap fruit off the screen entirely.
+  // Mid-reveal: the identity is not committed yet, so the face carries no
+  // sprite at all. This is what keeps the pre-swap fruit off the screen.
   if (blankFront) {
     clearCanvas(front);
-    element.setAttribute('aria-label', `Card ${card.id + 1}, face down`);
+    element.setAttribute('aria-label', `Card ${card.id + 1}`);
     return;
   }
 
-  // Face down. The front keeps whatever it last painted rather than being
-  // wiped: the card is mid flip-back at this point and its face is still
-  // turned toward the player, so clearing here makes the fruit vanish a beat
-  // before the card turns away. Nothing leaks, because every reveal repaints
-  // the face while it is still edge-on or further.
   if (card.state === 'down') {
     element.setAttribute('aria-label', `Card ${card.id + 1}, face down`);
+    if (previous && previous !== 'down') {
+      // Wipe once the rotation has carried the face out of sight, not at the
+      // start of it. Clearing immediately makes the fruit vanish a beat before
+      // the card turns away, which is visible on every engine. Never clearing
+      // leaves it on screen in WebKit, which paints the front face through the
+      // card back despite backface-visibility, and that would expose the board.
+      setTimeout(() => {
+        if (element.dataset.state === 'down') clearCanvas(front);
+      }, flipMs);
+    } else {
+      clearCanvas(front);
+    }
     return;
   }
 
@@ -467,9 +524,12 @@ export function mount(root, game) {
   const scoreboard = root.ownerDocument.querySelector('[data-region="scoreboard"]');
 
   const render = () => {
+    // Read once per pass rather than once per card: 36 getComputedStyle calls
+    // on every render is a measurable cost on a phone.
+    const flipMs = readFlipMs();
     for (const card of game.state.cards) {
       const element = elements.get(card.id);
-      if (element) renderCard(element, card, card.id === game.swapping);
+      if (element) renderCard(element, card, card.id === game.swapping, flipMs);
     }
     if (scoreboard) renderScoreboard(scoreboard, game.state.matches);
   };
