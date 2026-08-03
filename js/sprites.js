@@ -12,6 +12,18 @@ import { colorFor, isTransparent } from './palette.js';
 
 export const SPRITE_SIZE = 16;
 
+/**
+ * The six produce items (SPEC.md §2.1), in one place.
+ *
+ * The deck imports this rather than restating it. A typo across two lists would
+ * show a blank card, and only ever in the rigged phase, which is the hardest
+ * place in the app to notice anything.
+ */
+export const FRUITS = Object.freeze(['apple', 'banana', 'carrot', 'corn', 'tomato', 'pumpkin']);
+
+/** The shared face-down art. Not a fruit, so it is kept out of FRUITS. */
+export const CARD_BACK = 'back';
+
 /** name -> 16x16 character grid. Populated by tasks 04 through 10. */
 export const SPRITES = {};
 

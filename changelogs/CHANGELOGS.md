@@ -20,6 +20,16 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:04 EDT | feat(deck): 36-card deck and Fisher-Yates shuffle (task 15)
+
+Added `js/game.js` with the pure deck helpers: `shuffle` (copies, walks down with an inclusive
+bound so the last element can move, injectable random source) and `buildDeck` (six of each
+fruit, ids 0 to 35, all face down).
+Promoted the six fruit names to a frozen `FRUITS` export in `js/sprites.js` and imported it
+rather than restating the list, so a typo cannot desynchronize the board from the sprite
+registry. Covered by 13 unit tests including the even-count invariant stated at its origin and
+an unbiasedness check over 500 runs. Full suite green: 97 unit, 44 e2e.
+
 ## 2026-08-03 04:56 EDT | feat(audio): 8-bit cue engine and mute (task 14)
 
 Added `js/audio.js`: three square-wave cues built from one shared `tone` primitive, a context
