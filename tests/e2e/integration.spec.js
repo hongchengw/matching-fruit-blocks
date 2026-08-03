@@ -83,10 +83,13 @@ test.describe('the full playthrough', () => {
     await page.addInitScript(() => {
       window.__cues = [];
       const Real = window.AudioContext ?? window.webkitAudioContext;
+      // No WebAudio in Playwright's WebKit build. The audio half of this test
+      // skips itself below rather than asserting over an empty recording.
+      if (!Real) return;
       class Recording extends Real {
         createOscillator() {
           const osc = super.createOscillator();
-          const entry = { type: null, freq: null, start: null, stop: null };
+          const entry = { type: null, freq: null, startAt: null, duration: null };
           window.__cues.push(entry);
           const freq = osc.frequency;
           const original = freq.setValueAtTime.bind(freq);
@@ -96,13 +99,17 @@ test.describe('the full playthrough', () => {
           };
           const start = osc.start.bind(osc);
           const stop = osc.stop.bind(osc);
+          // Both scheduled times come straight from the caller, so the duration
+          // between them is exact. Measuring either one against currentTime
+          // instead would fold in however long the call took and make two
+          // identical cues look like 160ms and 159ms.
           osc.start = (t) => {
             entry.type = osc.type;
-            entry.start = 0;
+            entry.startAt = t;
             return start(t);
           };
           osc.stop = (t) => {
-            entry.stop = Math.round((t - (osc.context.currentTime ?? 0)) * 1000);
+            entry.duration = entry.startAt === null ? null : t - entry.startAt;
             return stop(t);
           };
           return osc;
@@ -121,7 +128,12 @@ test.describe('the full playthrough', () => {
       // itself without the page having to label it.
       const cues = await page.evaluate(() => window.__cues.slice());
       const buzz = cues.filter((c) => c.freq !== null && c.freq < 300).pop();
-      if (buzz) mismatchCues.push(JSON.stringify(buzz));
+      // Shape only: waveform, pitch, and length. The absolute schedule time
+      // moves with the clock and says nothing about whether two cues sound
+      // alike.
+      if (buzz) {
+        mismatchCues.push(JSON.stringify({ type: buzz.type, freq: buzz.freq, d: buzz.duration }));
+      }
     };
 
     // Honest phase, with a deliberate honest failure to sample its cue.
@@ -169,7 +181,14 @@ test.describe('the full playthrough', () => {
           };
           requestAnimationFrame(sample);
           element.click();
-          await new Promise((r) => setTimeout(r, 400));
+          // Wait for the flip to be observed all the way round rather than for
+          // a fixed stretch of wall clock. Frame delivery varies by engine and
+          // by how loaded the machine is, and a window that is comfortable on
+          // one can end before the card has turned on another.
+          const deadline = performance.now() + 2000;
+          while (performance.now() < deadline && !frames.some((f) => f.cos < -0.9)) {
+            await new Promise((r) => setTimeout(r, 16));
+          }
           running = false;
 
           const committed = window.__fmTest.cards().find((c) => c.id === b).fruit;
@@ -203,8 +222,10 @@ test.describe('the full playthrough', () => {
     }
 
     // Audio invariant: the honest buzz and every rigged buzz are one shape.
-    expect(mismatchCues.length).toBeGreaterThan(5);
-    expect(new Set(mismatchCues).size).toBe(1);
+    if (await page.evaluate(() => Boolean(window.AudioContext ?? window.webkitAudioContext))) {
+      expect(mismatchCues.length).toBeGreaterThan(5);
+      expect(new Set(mismatchCues).size).toBe(1);
+    }
 
     // Persistence invariant.
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fm.state')).rigLevel)).toBe(

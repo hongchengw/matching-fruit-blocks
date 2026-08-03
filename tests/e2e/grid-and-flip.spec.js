@@ -155,25 +155,31 @@ test('flip is linear so the midpoint is edge-on', async ({ page }) => {
 
 test('a real flip passes through the edge-on region', async ({ page }) => {
   await page.goto('/');
-  const { min, full } = await page.evaluate(async () => {
+  const minCos = await page.evaluate(async () => {
     const card = document.querySelector('[data-card]');
-    const front = card.querySelector('.card__face--front');
-    const full = card.getBoundingClientRect().width;
-    let min = Infinity;
+    const inner = card.querySelector('.card__inner');
+    let min = 1;
     let done = false;
+    // Read the rotation out of the matrix rather than measuring the face's
+    // projected width. WebKit does not foreshorten a preserve-3d child's
+    // bounding rect the way Chromium and Firefox do, so the rect is not a
+    // portable proxy for the angle. The matrix is the angle.
     const sample = () => {
-      min = Math.min(min, front.getBoundingClientRect().width);
+      const m = getComputedStyle(inner).transform;
+      if (m.startsWith('matrix')) {
+        min = Math.min(min, Math.abs(Number(m.slice(m.indexOf('(') + 1).split(',')[0])));
+      }
       if (!done) requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
     card.dataset.state = 'up';
     await new Promise((r) => setTimeout(r, 300));
     done = true;
-    return { min, full };
+    return min;
   });
-  // Frame sampling cannot guarantee landing on 90 degrees exactly, but the face
-  // must be observed heavily foreshortened partway through.
-  expect(min / full).toBeLessThan(0.35);
+  // cos(angle) near zero is the card edge-on. Frame sampling cannot guarantee
+  // landing on 90 degrees exactly, but it must be observed passing close.
+  expect(minCos).toBeLessThan(0.35);
 });
 
 test('locked cards use the recessed bevel', async ({ page }) => {

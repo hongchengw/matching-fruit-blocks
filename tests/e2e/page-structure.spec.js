@@ -107,9 +107,23 @@ test('bevel is 3px on all sides', async ({ page }) => {
   await page.goto('/');
   const widths = await page.locator('.bevel').first().evaluate((el) => {
     const cs = getComputedStyle(el);
-    return [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth];
+    return [
+      cs.borderTopWidth,
+      cs.borderRightWidth,
+      cs.borderBottomWidth,
+      cs.borderLeftWidth,
+    ].map(parseFloat);
   });
-  expect(widths).toEqual(['3px', '3px', '3px', '3px']);
+  // Compared numerically with a sub-pixel tolerance. The declared width is
+  // 3px, but Firefox reports it snapped to the device pixel grid (2.75px at
+  // this scale factor), and the bevel being chunky and even on all four sides
+  // is what the spec actually asks for.
+  expect(widths).toHaveLength(4);
+  for (const width of widths) {
+    expect(width).toBeGreaterThan(2.5);
+    expect(width).toBeLessThanOrEqual(3);
+  }
+  expect(new Set(widths).size).toBe(1);
 });
 
 test('recessed bevel inverts the raised one', async ({ page }) => {

@@ -12,6 +12,10 @@ async function recordCues(page) {
   await page.addInitScript(() => {
     window.__cueTimes = [];
     const Real = window.AudioContext ?? window.webkitAudioContext;
+    // Playwright's WebKit build ships no WebAudio at all, so there is nothing
+    // to subclass and nothing to hear. The game already degrades to silence
+    // there rather than throwing; the test below skips instead of pretending.
+    if (!Real) return;
     class Recording extends Real {
       createOscillator() {
         window.__cueTimes.push(performance.now());
@@ -22,6 +26,9 @@ async function recordCues(page) {
     window.webkitAudioContext = Recording;
   });
 }
+
+const hasWebAudio = (page) =>
+  page.evaluate(() => Boolean(window.AudioContext ?? window.webkitAudioContext));
 
 /** Two face-down cards of different fruits, so the attempt always fails. */
 async function mismatchPair(page) {
@@ -35,6 +42,7 @@ async function mismatchPair(page) {
 test('the reshuffle emits no sound', async ({ page }) => {
   await recordCues(page);
   await page.goto(TEST_PAGE);
+  test.skip(!(await hasWebAudio(page)), 'engine exposes no WebAudio to listen to');
 
   const identitiesBefore = await page.evaluate(() =>
     window.__fmTest.cards().map((c) => c.fruit).join(),

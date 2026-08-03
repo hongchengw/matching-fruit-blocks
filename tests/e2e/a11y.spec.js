@@ -238,7 +238,12 @@ test('plays through the phase boundary under reduced motion', async ({ page }) =
         };
         requestAnimationFrame(sample);
         element.click();
-        await new Promise((r) => setTimeout(r, 400));
+        // Observed rather than timed: the reduced-motion flip is 80ms, and a
+        // fixed window can miss it entirely on a loaded machine.
+        const deadline = performance.now() + 2000;
+        while (performance.now() < deadline && !frames.some((f) => f.cos < -0.9)) {
+          await new Promise((r) => setTimeout(r, 16));
+        }
         running = false;
 
         const committed = window.__fmTest.cards().find((c) => c.id === b).fruit;
