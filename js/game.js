@@ -110,8 +110,68 @@ export function silentReshuffle(cards, matches, random = Math.random) {
  */
 export const MISMATCH_DELAY_MS = 1000;
 
-/** Honest matches before the rig arms (SPEC.md §2.2). Task 21 persists it. */
+/** Honest matches before the rig arms (SPEC.md §2.2). */
 export const DEFAULT_RIG_LEVEL = 5;
+
+// ---------------------------------------------------------------------------
+// Persistence (SPEC.md §8)
+// ---------------------------------------------------------------------------
+
+export const STORAGE_KEY = 'fm.state';
+
+/**
+ * `rigLevel` only ever walks down from the default, so anything outside 0 to 5
+ * is either tampering or corruption. Clamping keeps the state readable instead
+ * of letting a hand-edited value produce a board the rest of the code cannot
+ * reason about.
+ */
+function sanitizeRigLevel(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_RIG_LEVEL;
+  return Math.min(DEFAULT_RIG_LEVEL, Math.max(0, Math.trunc(value)));
+}
+
+/**
+ * Read `fm.state`, repairing it in place if it is missing or unusable.
+ *
+ * Wrapped because private browsing can throw on access, and a crash on load
+ * would be a very loud tell.
+ *
+ * `muted` is carried through rather than owned here: js/audio.js is the only
+ * module that acts on it, and it deliberately imports nothing from this file.
+ */
+export function loadState() {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    parsed = null;
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    const defaults = { rigLevel: DEFAULT_RIG_LEVEL, muted: false };
+    writeState(defaults);
+    return defaults;
+  }
+
+  return { rigLevel: sanitizeRigLevel(parsed.rigLevel), muted: parsed.muted === true };
+}
+
+function writeState(value) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Storage unavailable. The setting still applies for this session.
+  }
+}
+
+/**
+ * Read-modify-write, so the sibling `muted` key that js/audio.js owns survives.
+ * Board state is never written: a reload starts a fresh board at the stored
+ * threshold.
+ */
+export function saveState(partial) {
+  writeState({ ...loadState(), ...partial });
+}
 
 /** Fallback flip duration when no stylesheet is present, as in jsdom. */
 export const DEFAULT_FLIP_MS = 180;
@@ -305,9 +365,28 @@ export function createGame({
     }, flipMidpoint(flipMs ?? readFlipMs()));
   }
 
+  /**
+   * Start over, at a cost (SPEC.md §2.7).
+   *
+   * Every press shortens the honest phase by one, floored at zero, and the
+   * page says nothing about it. The player's instinct when stuck is to reset,
+   * and the reset is what makes it worse. No confirmation, no warning, no hint.
+   */
+  function reset() {
+    state.rigLevel = Math.max(0, state.rigLevel - 1);
+    state.matches = 0;
+    state.first = null;
+    state.busy = false;
+    swapping = null;
+    state.cards = buildDeck(random);
+    saveState({ rigLevel: state.rigLevel });
+    onChange(state);
+  }
+
   return {
     state,
     flip,
+    reset,
     /** Card whose face is intentionally blank right now, or null. */
     get swapping() {
       return swapping;
@@ -434,9 +513,12 @@ export function startGame(root, { search = '' } = {}) {
   let render = () => {};
   const game = createGame({
     onChange: () => render(),
-    ...(Number.isFinite(rigLevel) ? { rigLevel } : {}),
+    rigLevel: Number.isFinite(rigLevel) ? rigLevel : loadState().rigLevel,
   });
   render = mount(root, game);
+
+  const resetButton = document.querySelector('[data-control="reset"]');
+  if (resetButton) resetButton.addEventListener('click', () => game.reset());
 
   const mute = document.querySelector('[data-control="mute"]');
   if (mute) {

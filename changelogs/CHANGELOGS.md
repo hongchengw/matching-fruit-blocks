@@ -20,6 +20,21 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:39 EDT | feat(persistence): rigLevel persistence and the compounding curse (task 21)
+
+Added the `fm.state` layer to `js/game.js` (`loadState`, `saveState`, and a clamp on `rigLevel`)
+and wired the Reset button: each press decrements the threshold by one, floors at zero, and says
+nothing about it. No confirmation, no warning, no hint that starting over costs anything.
+Storage access is wrapped throughout, since private browsing can throw and a crash on load would
+be a very loud tell. Corrupt JSON and out-of-range values fall back to the documented defaults
+and overwrite. Board state is never written; a reload deals a fresh board at the stored level.
+Kept the read-modify-write in this module rather than sharing a helper with `js/audio.js`. The
+audio module's isolation is a hard constraint from SPEC.md §4.3, and a dozen duplicated lines is
+the price of it not importing anything that could carry rig state.
+Covered by 11 unit tests and 6 e2e including reload survival, a new browser context with the
+same storage, and a standing no-escape guard that clicks every interactive element, hammers the
+signboard, and tries the usual cheat codes. Full suite green: 163 unit, 66 e2e.
+
 ## 2026-08-03 05:35 EDT | feat(reshuffle): silent reshuffle and the tally invariant (task 20)
 
 Added `buildEvenMultiset` and `silentReshuffle`, wired into the mismatch path after both cards
