@@ -41,30 +41,39 @@ async function attemptPair(page) {
  * Sample the flip frame by frame.
  *
  * `cos` is the first cell of the rotation matrix, so it is cos(angle): -1 is
- * fully face-on with the front showing, 0 is edge-on and unreadable. `isTrue`
- * says whether the painted sprite is the one the card was about to show.
+ * fully face-on with the front showing, 0 is edge-on and unreadable.
+ *
+ * Each frame is classified against two references: the fruit the card was
+ * about to show, and the fruit it ended up committing to. Note the reroll may
+ * legitimately land back on the card's own true fruit, since SPEC.md §7.2
+ * excludes only the first card's fruit and `lastShown`. So the load-bearing
+ * classification is `isFinal`: nothing but the committed sprite may ever be
+ * readable, which covers the leak case without mistaking a coincidence for one.
  */
 async function captureFlip(page, { second, secondFruit }) {
   return page.evaluate(
     async ({ second, secondFruit }) => {
       const { drawSprite } = await import('/js/sprites.js');
-      const reference = document.createElement('canvas');
-      drawSprite(reference, secondFruit);
       const signature = (canvas) =>
         canvas.getContext('2d').getImageData(0, 0, 16, 16).data.join(',');
-      const preSwap = signature(reference);
+      const reference = (fruit) => {
+        const canvas = document.createElement('canvas');
+        drawSprite(canvas, fruit);
+        return signature(canvas);
+      };
 
       const element = document.querySelector(`[data-card="${second}"]`);
       const inner = element.querySelector('.card__inner');
       const canvas = element.querySelector('.card__face--front canvas');
+      const blank = signature(canvas);
+      const preSwap = reference(secondFruit);
 
       const frames = [];
       let running = true;
       const sample = () => {
         const m = getComputedStyle(inner).transform;
         const cos = m.startsWith('matrix') ? Number(m.slice(m.indexOf('(') + 1).split(',')[0]) : 1;
-        const sig = signature(canvas);
-        frames.push({ cos, isPreSwap: sig === preSwap, sig });
+        frames.push({ cos, sig: signature(canvas) });
         if (running) requestAnimationFrame(sample);
       };
       requestAnimationFrame(sample);
@@ -73,8 +82,18 @@ async function captureFlip(page, { second, secondFruit }) {
       await new Promise((resolve) => setTimeout(resolve, 500));
       running = false;
 
-      const distinct = [...new Set(frames.map((f) => f.sig))].length;
-      return { frames: frames.map(({ cos, isPreSwap }) => ({ cos, isPreSwap })), distinct };
+      const committed = window.__fmTest.cards().find((c) => c.id === second).fruit;
+      const final = reference(committed);
+      return {
+        rerolled: committed !== secondFruit,
+        distinct: [...new Set(frames.map((f) => f.sig))].length,
+        frames: frames.map(({ cos, sig }) => ({
+          cos,
+          isPreSwap: sig === preSwap,
+          isFinal: sig === final,
+          isBlank: sig === blank,
+        })),
+      };
     },
     { second, secondFruit },
   );
@@ -92,12 +111,22 @@ test('no frame shows the pre-swap fruit face-on', async ({ page }) => {
   const capture = await captureFlip(page, pair);
 
   // The capture has to have actually observed the card face-on, or the
-  // assertion below would be vacuous.
+  // assertions below would be vacuous.
   expect(readable(capture.frames).length).toBeGreaterThan(0);
   expect(capture.frames.some((f) => f.cos < -0.9)).toBe(true);
 
-  // The invariant itself (SPEC.md §10.3).
-  expect(readable(capture.frames).filter((f) => f.isPreSwap)).toHaveLength(0);
+  // The invariant itself (SPEC.md §10.3): the only sprite ever readable is the
+  // one the card committed to at the midpoint.
+  expect(readable(capture.frames).filter((f) => !f.isFinal)).toHaveLength(0);
+
+  // And stated the way the spec words it, whenever the identity actually moved.
+  if (capture.rerolled) {
+    expect(readable(capture.frames).filter((f) => f.isPreSwap)).toHaveLength(0);
+  }
+
+  // Before the swap the face carries nothing at all. The true fruit is never
+  // drawn, so there is no pre-swap frame to hide, not merely a brief one.
+  expect(capture.frames.some((f) => f.isBlank)).toBe(true);
 });
 
 test('the swap leaves no intermediate artifact', async ({ page }) => {
@@ -126,7 +155,8 @@ test('reduced motion preserves the hiding place', async ({ page }) => {
   const capture = await captureFlip(page, pair);
 
   expect(readable(capture.frames).length).toBeGreaterThan(0);
-  expect(readable(capture.frames).filter((f) => f.isPreSwap)).toHaveLength(0);
+  expect(readable(capture.frames).filter((f) => !f.isFinal)).toHaveLength(0);
+  expect(capture.frames.some((f) => f.isBlank)).toBe(true);
 });
 
 test('rigged timing is indistinguishable from honest timing', async ({ page }) => {

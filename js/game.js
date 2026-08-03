@@ -95,14 +95,44 @@ export function flipMidpoint(flipMs) {
   return flipMs / 2;
 }
 
+/** How many unmatched cards currently carry each fruit. */
+export function unmatchedCounts(cards) {
+  return cards.reduce((counts, card) => {
+    if (card.state !== 'locked') counts[card.fruit] = (counts[card.fruit] ?? 0) + 1;
+    return counts;
+  }, {});
+}
+
 /**
- * Placeholder selection, replaced by task 19's real rules.
+ * Pick what the second card will show instead (SPEC.md §7.2).
  *
- * The one property that is not a placeholder: the result is never the first
- * card's fruit. That is what makes the match impossible, and it is the rig.
+ * Two exclusions, and they are not equal in status:
+ *
+ *   1. the first card's fruit, hard. Never dropped. This single rule is what
+ *      makes the match impossible, and it is the whole rig.
+ *   2. the fruit this card just showed, soft. Dropped only if keeping it would
+ *      leave nothing to pick. Without it a card can show banana, refuse to
+ *      match, and show banana again: a contradiction the player can see.
+ *
+ * Then a preference, not a filter: favor fruits that are still in play, so the
+ * board never displays produce that should not be there. If the preference
+ * empties the pool it is ignored, never exclusion 1.
+ *
+ * Pure, and knows nothing about `matches`, `rigLevel`, or `rigged`. Task 18
+ * owns the decision to call it at all.
+ *
+ * `fruits` is injectable only so the fallback branch is reachable in a test:
+ * with all six, the two exclusions can never empty the candidate set.
  */
-function stubReroll(card, first) {
-  return FRUITS.find((fruit) => fruit !== first.fruit);
+export function rerollFruit(card, firstCard, counts = {}, random = Math.random, fruits = FRUITS) {
+  const withoutFirst = fruits.filter((fruit) => fruit !== firstCard.fruit);
+  const candidates = withoutFirst.filter((fruit) => fruit !== card.lastShown);
+
+  const pool = candidates.length > 0 ? candidates : withoutFirst;
+  const inPlay = pool.filter((fruit) => (counts[fruit] ?? 0) > 0);
+  const choices = inPlay.length > 0 ? inPlay : pool;
+
+  return choices[Math.floor(random() * choices.length)];
 }
 
 /**
@@ -115,7 +145,8 @@ export function createGame({
   deck = buildDeck(),
   onChange = () => {},
   rigLevel = DEFAULT_RIG_LEVEL,
-  reroll = stubReroll,
+  random = Math.random,
+  reroll = (card, first, cards) => rerollFruit(card, first, unmatchedCounts(cards), random),
   flipMs = null,
 } = {}) {
   const state = {

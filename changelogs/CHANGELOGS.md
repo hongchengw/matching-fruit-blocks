@@ -20,6 +20,26 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:24 EDT | feat(reroll): the real reroll selection rules (task 19)
+
+Replaced task 18's stub with `rerollFruit`: exclude the first card's fruit (hard, never
+dropped), exclude the card's `lastShown` (soft, dropped only if it would empty the pool), then
+prefer fruits still in play as a preference rather than a filter. Pure, and it never reads
+`matches`, `rigLevel`, or `rigged`.
+`fruits` is injectable purely so the fallback is reachable at all: with the full six, the two
+exclusions can never empty the candidate set, and an untestable branch in the rig's hot path is
+worse than a parameter. Covered by 12 unit tests including the distribution check and a 50
+attempt rigged run that never matches and never repeats a card's last fruit.
+
+Rewrote the oracle in the task 18 frame-by-frame test. It compared each frame against the
+card's pre-swap fruit, but the reroll may legitimately land back on that same fruit, since §7.2
+excludes only the first card's fruit and `lastShown`. The test therefore reported a leak where
+none had happened. It now asserts the stronger property: no readable frame may show anything
+other than the sprite committed at the midpoint, and the face is observed blank beforehand. The
+spec's own wording is still asserted whenever the identity actually moved. This is a stricter
+assertion than the one it replaces, not a looser one. Verified over three repeat runs.
+Full suite green: 141 unit, 57 e2e.
+
 ## 2026-08-03 05:18 EDT | feat(scoreboard): LCD readouts and the frozen counter (task 17)
 
 Added `formatScoreboard`, a pure function of `matches` over the fixed denominator of 18, and the
