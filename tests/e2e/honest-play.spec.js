@@ -95,7 +95,10 @@ test('ignores rapid clicks during the mismatch delay', async ({ page }) => {
 });
 
 test('the honest phase is genuinely winnable', async ({ page }) => {
-  await page.goto(TEST_PAGE);
+  // The rig arms at match 5, so the threshold is pushed out of reach to isolate
+  // the honest loop. Proving all 18 pairs are findable is what makes the rig a
+  // deliberate act rather than an indistinguishable bug in the match check.
+  await page.goto('/?fm-test=1&fm-rig=999');
 
   for (let pair = 0; pair < 18; pair += 1) {
     const found = await findPair(page);

@@ -20,6 +20,32 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:11 EDT | feat(rig): rig arming and the midpoint swap (task 18)
+
+Added the derived `rigged` getter and the swap. The rigged second card starts its rotation with
+an unpainted face and its identity is decided and drawn once, at the midpoint, from
+`flipMidpoint(readFlipMs())`. The true fruit is never drawn at all, so there is no pre-swap
+frame to catch rather than a frame that is merely hard to see. Reduced motion needs no special
+case: the midpoint follows the CSS custom property down to 80ms.
+The outcome is settled at click time, not after the swap, because a rigged attempt can never
+match by construction. The mismatch cue and the 1000ms timer therefore start at the same point
+in the attempt as they do honestly, which is what makes the two phases indistinguishable by ear
+and by stopwatch. Measured at 1 to 2ms apart in the browser.
+Ships a deliberately dumb reroll stub behind a seam; task 19 fills it.
+Covered by 14 unit tests and 4 e2e including the frame-by-frame invariant under both motion
+settings.
+
+Took task 18 before task 17, since two of task 17's e2e tests assert the scoreboard freezes
+after the rig arms and cannot be written against an unrigged game. Both are unlocked by 16 and
+independent of each other, so the order is free.
+
+Adjusted the two winnability tests from task 16, which played 18 pairs at the default rig level
+and could no longer pass once the rig existed. Both now push the threshold out of reach and
+assert the same thing: every one of the 18 pairs is findable. The e2e does it through a
+`&fm-rig=` parameter honored only alongside `?fm-test=1`. That is a test affordance, not an
+escape hatch: nothing in the UI mentions it and it cannot be reached in normal play. Full suite
+green: 123 unit, 53 e2e.
+
 ## 2026-08-03 05:06 EDT | feat(loop): honest game loop (task 16)
 
 Added the state machine to `js/game.js`: one guarded `flip` entry point, match locking, the

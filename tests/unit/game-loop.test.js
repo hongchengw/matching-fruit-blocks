@@ -185,9 +185,13 @@ describe('cues', () => {
 
 describe('winnability', () => {
   it('locks all 36 cards when every pair is found', () => {
-    // The base game is fair. Tasks 18 through 20 take this away; without it, a
-    // broken match check would be indistinguishable from the rig.
-    const game = createGame({ deck: pairedDeck() });
+    // The base game is fair. Without this, a broken match check would be
+    // indistinguishable from the rig.
+    //
+    // The rig arrived in task 18 and would otherwise arm at match 5, so the
+    // threshold is pushed out of reach to isolate the honest loop. The
+    // assertion is unchanged: every one of the 18 pairs must be findable.
+    const game = createGame({ deck: pairedDeck(), rigLevel: Number.POSITIVE_INFINITY });
     for (let id = 0; id < 36; id += 2) {
       game.flip(id);
       game.flip(id + 1);

@@ -182,6 +182,12 @@ describe('the midpoint swap (SPEC.md §7.1)', () => {
         '</span></button>',
     ).join('')}</div>`;
 
+    // jsdom has no canvas backend, so give the renderer somewhere to paint.
+    const noop = () => {};
+    for (const canvas of document.querySelectorAll('canvas')) {
+      canvas.getContext = () => ({ clearRect: noop, fillRect: noop, set fillStyle(_) {} });
+    }
+
     const root = document.querySelector('[data-region="grid"]');
     const game = riggedGame();
     mount(root, game);

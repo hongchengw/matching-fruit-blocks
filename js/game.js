@@ -68,19 +68,74 @@ export function buildDeck(random = Math.random) {
  */
 export const MISMATCH_DELAY_MS = 1000;
 
+/** Honest matches before the rig arms (SPEC.md §2.2). Task 21 persists it. */
+export const DEFAULT_RIG_LEVEL = 5;
+
+/** Fallback flip duration when no stylesheet is present, as in jsdom. */
+export const DEFAULT_FLIP_MS = 180;
+
+/**
+ * The flip duration CSS is currently using.
+ *
+ * Read rather than hardcoded, because reduced motion shortens it. The midpoint
+ * has to follow the duration or the swap lands somewhere readable.
+ */
+export function readFlipMs() {
+  if (typeof document === 'undefined') return DEFAULT_FLIP_MS;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--fm-flip-ms');
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_FLIP_MS;
+}
+
+/**
+ * When the card is edge-on: half the rotation, so a 1px sliver with no
+ * readable face (SPEC.md §2.3). The only frame-perfect hiding place there is.
+ */
+export function flipMidpoint(flipMs) {
+  return flipMs / 2;
+}
+
+/**
+ * Placeholder selection, replaced by task 19's real rules.
+ *
+ * The one property that is not a placeholder: the result is never the first
+ * card's fruit. That is what makes the match impossible, and it is the rig.
+ */
+function stubReroll(card, first) {
+  return FRUITS.find((fruit) => fruit !== first.fruit);
+}
+
 /**
  * The game as a small state machine over SPEC.md §5.
  *
  * `onChange` is the only way out: the caller renders, the machine never touches
  * the DOM. That keeps the loop testable under jsdom with no markup at all.
  */
-export function createGame({ deck = buildDeck(), onChange = () => {} } = {}) {
+export function createGame({
+  deck = buildDeck(),
+  onChange = () => {},
+  rigLevel = DEFAULT_RIG_LEVEL,
+  reroll = stubReroll,
+  flipMs = null,
+} = {}) {
   const state = {
     cards: deck,
     first: null,
     matches: 0,
+    rigLevel,
     busy: false,
+
+    /**
+     * Derived, never stored (SPEC.md §5). A stored flag could drift out of sync
+     * with `matches` and leave an accidentally winnable board.
+     */
+    get rigged() {
+      return this.matches >= this.rigLevel;
+    },
   };
+
+  /** Card id whose face is deliberately unpainted until the midpoint. */
+  let swapping = null;
 
   const cardAt = (id) => state.cards.find((card) => card.id === id);
 
@@ -131,19 +186,59 @@ export function createGame({ deck = buildDeck(), onChange = () => {} } = {}) {
 
     state.busy = true;
     const first = cardAt(state.first);
-    reveal(card);
 
-    if (first.fruit === card.fruit) {
-      resolveMatch(first, card);
-    } else {
+    if (state.rigged) {
+      revealRigged(card, first);
+      // Always a mismatch by construction, so the outcome is settled now rather
+      // than after the swap. The cue and the 1000ms timer therefore start at
+      // the same point in the attempt as they do honestly, and the two phases
+      // are indistinguishable by ear or by stopwatch.
       resolveMismatch(first, card);
+    } else {
+      reveal(card);
+      if (first.fruit === card.fruit) {
+        resolveMatch(first, card);
+      } else {
+        resolveMismatch(first, card);
+      }
     }
 
     onChange(state);
     return true;
   }
 
-  return { state, flip };
+  /**
+   * Reveal the second card without deciding what it is yet (SPEC.md §7.1).
+   *
+   * The rotation starts immediately, but the face stays unpainted until the
+   * card is edge-on. Nothing ever draws the true fruit, so there is no
+   * pre-swap frame to catch: not a frame that is hard to see, none at all.
+   *
+   * Deliberately a timer, and never the transition's completion event, which
+   * fires once the card is face-on again and would guarantee the very frame
+   * this seals off.
+   */
+  function revealRigged(card, first) {
+    card.state = 'up';
+    swapping = card.id;
+    beepFlip();
+
+    setTimeout(() => {
+      card.fruit = reroll(card, first, state.cards);
+      card.lastShown = card.fruit;
+      swapping = null;
+      onChange(state);
+    }, flipMidpoint(flipMs ?? readFlipMs()));
+  }
+
+  return {
+    state,
+    flip,
+    /** Card whose face is intentionally blank right now, or null. */
+    get swapping() {
+      return swapping;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -157,16 +252,25 @@ export function createGame({ deck = buildDeck(), onChange = () => {} } = {}) {
  * Task 18 changes when that read happens, not how, which is why nothing here
  * caches the drawn fruit.
  */
-function renderCard(element, card) {
+function renderCard(element, card, blankFront) {
   element.dataset.state = card.state;
   const [back, front] = element.querySelectorAll('.card__art');
   drawSprite(back, CARD_BACK);
-  if (card.state === 'down') {
+
+  // Face down, or mid-swap and not yet decided. Either way the front carries no
+  // sprite, which is what keeps the pre-swap fruit off the screen entirely.
+  if (card.state === 'down' || blankFront) {
+    clearCanvas(front);
     element.setAttribute('aria-label', `Card ${card.id + 1}, face down`);
     return;
   }
+
   drawSprite(front, card.fruit);
   element.setAttribute('aria-label', `Card ${card.id + 1}, ${card.fruit}`);
+}
+
+function clearCanvas(canvas) {
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
 /** Bind the machine to the existing markup. One listener, delegated. */
@@ -178,7 +282,7 @@ export function mount(root, game) {
   const render = () => {
     for (const card of game.state.cards) {
       const element = elements.get(card.id);
-      if (element) renderCard(element, card);
+      if (element) renderCard(element, card, card.id === game.swapping);
     }
   };
 
@@ -205,14 +309,34 @@ export function mount(root, game) {
 function exposeTestHook(game) {
   window.__fmTest = {
     cards: () => game.state.cards.map((card) => ({ ...card })),
-    state: () => ({ first: game.state.first, matches: game.state.matches, busy: game.state.busy }),
+    state: () => ({
+      first: game.state.first,
+      matches: game.state.matches,
+      busy: game.state.busy,
+      rigLevel: game.state.rigLevel,
+      rigged: game.state.rigged,
+    }),
   };
 }
 
-/** Wire the machine, the markup, and the mute toggle together. */
+/**
+ * Wire the machine, the markup, and the mute toggle together.
+ *
+ * `?fm-test=1` enables the debug hook, and only then is `&fm-rig=<n>` honored
+ * so a test can hold the rig off and play a full fair board. Both are test
+ * affordances behind the same gate, not an escape hatch: nothing in the UI
+ * mentions them and normal play cannot reach either (SPEC.md §2.8).
+ */
 export function startGame(root, { search = '' } = {}) {
+  const params = new URLSearchParams(search);
+  const testing = params.has('fm-test');
+  const rigLevel = testing && params.has('fm-rig') ? Number(params.get('fm-rig')) : undefined;
+
   let render = () => {};
-  const game = createGame({ onChange: () => render() });
+  const game = createGame({
+    onChange: () => render(),
+    ...(Number.isFinite(rigLevel) ? { rigLevel } : {}),
+  });
   render = mount(root, game);
 
   const mute = document.querySelector('[data-control="mute"]');
@@ -228,7 +352,7 @@ export function startGame(root, { search = '' } = {}) {
     paint();
   }
 
-  if (new URLSearchParams(search).has('fm-test')) exposeTestHook(game);
+  if (testing) exposeTestHook(game);
   return game;
 }
 
