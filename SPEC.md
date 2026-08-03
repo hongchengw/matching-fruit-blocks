@@ -232,11 +232,15 @@ Applies whenever `rigged === true`. Everything in §6 still holds except the sec
 
 ### 7.1 Midpoint swap
 
-The card flip is a 180ms `transform: rotateY()` transition. The second card's identity must be decided and drawn at **t=90ms**, while the element is rotated 90deg and presents an unreadable 1px sliver.
+The card flip is a 180ms `transform: rotateY()` transition. The second card's identity must be decided and drawn **at or immediately before t=90ms**, while the element is rotated no further than 90deg and presents no readable face.
 
-**Implementation constraint:** schedule the swap on a timer aligned to the flip's midpoint. Do **not** use `transitionend`, and do not draw the true fruit first and replace it after. Either approach renders at least one face-on frame of the pre-swap fruit, which breaks the visual invariant.
+**Implementation constraint:** schedule the swap against the flip's midpoint on a frame-aligned deadline, and never let it land after that point. Do **not** use `transitionend`, and do not draw the true fruit first and replace it after. Either approach renders at least one face-on frame of the pre-swap fruit, which breaks the visual invariant.
 
-Task 18 asserts frame-by-frame that no captured frame shows the pre-swap fruit face-on.
+**Why "at or immediately before" rather than exactly at.** The front face is `backface-visibility: hidden`, so it is invisible for the entire first half of the rotation. Swapping a frame early is therefore free: nothing is on screen to change. Swapping a frame *late* is not free, because the face is already turning toward the player. The two directions are not symmetric, so the deadline is a ceiling and not a target.
+
+This matters most under `prefers-reduced-motion`, where the flip shortens to 80ms and the whole hiding window is 40ms. A plain timer's jitter is a small fraction of a 180ms flip and a large fraction of an 80ms one; Firefox was observed landing a swap after the face had become readable, showing one frame of an unpainted card. That frame never revealed the pre-swap fruit, because the pre-swap fruit is never drawn at all, but a card that flashes blank is its own tell.
+
+Task 18 asserts frame-by-frame that no captured frame shows anything other than the sprite the card committed to.
 
 ### 7.2 `rerollFruit(card, firstCard)`
 

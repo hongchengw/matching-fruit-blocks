@@ -46,6 +46,9 @@ a stub reroll that returns a fixed non-matching fruit so the two concerns stay s
 - Read the flip duration from the CSS custom property task 13 defines, halve it, and schedule
   against that. Hardcoding 90 breaks silently if the duration is ever tuned, and breaks
   entirely under reduced motion.
+- Treat the midpoint as a ceiling, not a target, and land on a frame-aligned deadline. See
+  `SPEC.md` §7.1: swapping a frame early is invisible, swapping a frame late is not, and under
+  reduced motion a plain timer's jitter is large enough to overshoot.
 - Never draw the true fruit and then replace it. Decide the identity at the midpoint and draw
   once. Drawing twice is what produces the pre-swap frame the invariant forbids.
 - Call the reroll through a seam task 19 can fill. This task ships with a deliberately dumb
