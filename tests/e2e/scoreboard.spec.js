@@ -57,6 +57,10 @@ test('reads 5/18 once the rig arms', async ({ page }) => {
 test('never advances past the rig threshold', async ({ page }) => {
   // The user-facing form of the frozen-counter decision: 13 matches dangling,
   // permanently visible, forever out of reach.
+  //
+  // 25 attempts at the spec's 1000ms flip-back is over 30 seconds of real
+  // waiting, so this test buys the time rather than shortening the run.
+  test.setTimeout(90_000);
   await page.goto(TEST_PAGE);
   for (let i = 0; i < 5; i += 1) expect(await playPair(page)).toBe(true);
 

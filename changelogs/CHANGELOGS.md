@@ -20,6 +20,21 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:18 EDT | feat(scoreboard): LCD readouts and the frozen counter (task 17)
+
+Added `formatScoreboard`, a pure function of `matches` over the fixed denominator of 18, and the
+two recessed LCD readouts in the scoreboard panel. Tabular figures and a minimum width keep the
+digits from shifting, since layout jitter around a counter that has quietly stopped moving is
+what would draw a player's eye to it.
+The freeze is written nowhere. It falls out of `matches` never incrementing again, exactly as
+SPEC.md §2.6 requires, and a unit test reads the function's own source to fail anyone who later
+adds a freeze branch, a rig check, or a high-water cache. Covered by 6 unit and 4 e2e tests
+including 25 attempts past the threshold with the readout still on 5/18 and 13 matches dangling.
+Raised that test's Playwright timeout: 25 attempts at the spec's 1000ms flip-back is over 30
+seconds of real waiting, so it buys time rather than shortening the run.
+Updated the stall snapshot baseline deliberately, since the scoreboard panel is no longer empty.
+Full suite green: 129 unit, 57 e2e.
+
 ## 2026-08-03 05:11 EDT | feat(rig): rig arming and the midpoint swap (task 18)
 
 Added the derived `rigged` getter and the swap. The rigged second card starts its rotation with

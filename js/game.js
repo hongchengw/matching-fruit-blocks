@@ -273,17 +273,42 @@ function clearCanvas(canvas) {
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 }
 
+/**
+ * The scoreboard readouts (SPEC.md §3.3 item 3).
+ *
+ * A pure function of `matches` over a constant denominator. That is the entire
+ * mechanism, and it is why the freeze in SPEC.md §2.6 needs no code: once
+ * `matches` stops moving, so does this, with nothing here aware of the rig.
+ *
+ * Do not add a freeze branch, a rig check, or a high-water cache.
+ */
+export function formatScoreboard(matches) {
+  return {
+    score: `SCORE: ${matches}`,
+    matches: `MATCHES MADE: ${matches}/${PAIR_COUNT}`,
+  };
+}
+
+export function renderScoreboard(root, matches) {
+  const text = formatScoreboard(matches);
+  root.querySelector('[data-readout="score"]').textContent = text.score;
+  root.querySelector('[data-readout="matches"]').textContent = text.matches;
+}
+
 /** Bind the machine to the existing markup. One listener, delegated. */
 export function mount(root, game) {
   const elements = new Map(
     [...root.querySelectorAll('[data-card]')].map((el) => [Number(el.dataset.card), el]),
   );
 
+  const scoreboard = root.ownerDocument.querySelector('[data-region="scoreboard"]');
+
   const render = () => {
     for (const card of game.state.cards) {
       const element = elements.get(card.id);
       if (element) renderCard(element, card, card.id === game.swapping);
     }
+    if (scoreboard) renderScoreboard(scoreboard, game.state.matches);
   };
 
   root.addEventListener('click', (event) => {

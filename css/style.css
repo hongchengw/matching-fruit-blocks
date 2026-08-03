@@ -149,6 +149,29 @@ body {
   padding: 6px 10px;
   text-transform: uppercase;
   letter-spacing: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/*
+ * Light digits in a dark recessed inset (SPEC.md §3.3).
+ *
+ * Tabular figures and a floor on the width keep the readout from shifting as
+ * the numbers change. Layout jitter around a counter that has quietly stopped
+ * moving is exactly what would draw a player's eye to it.
+ */
+.scoreboard__lcd {
+  background: var(--fm-lcd-bg);
+  color: var(--fm-lcd-on);
+  padding: 4px 8px;
+  font-size: clamp(10px, 2.6vw, 14px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  min-width: 9ch;
+  text-align: center;
 }
 
 /* Crate slats behind the cards, and the 6x6 board (SPEC.md §2.1, §9). */

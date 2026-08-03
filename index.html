@@ -29,7 +29,16 @@
         </button>
       </header>
 
-      <div class="stall__scoreboard bevel" data-region="scoreboard"></div>
+      <!--
+        Recessed LCD readouts (SPEC.md §3.3). The initial text is the same
+        thing js/game.js renders, so the panel never flashes a placeholder.
+      -->
+      <div class="stall__scoreboard bevel" data-region="scoreboard">
+        <span class="scoreboard__lcd bevel bevel--recessed" data-readout="score">SCORE: 0</span>
+        <span class="scoreboard__lcd bevel bevel--recessed" data-readout="matches"
+          >MATCHES MADE: 0/18</span
+        >
+      </div>
 
       <!--
         36 cards, 6x6 (SPEC.md 2.1). Static markup keeps this task purely
