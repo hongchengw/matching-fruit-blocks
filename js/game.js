@@ -410,10 +410,20 @@ function renderCard(element, card, blankFront) {
   const [back, front] = element.querySelectorAll('.card__art');
   drawSprite(back, CARD_BACK);
 
-  // Face down, or mid-swap and not yet decided. Either way the front carries no
-  // sprite, which is what keeps the pre-swap fruit off the screen entirely.
-  if (card.state === 'down' || blankFront) {
+  // Mid-swap: the identity is not decided yet, so the face carries no sprite at
+  // all. This is what keeps the pre-swap fruit off the screen entirely.
+  if (blankFront) {
     clearCanvas(front);
+    element.setAttribute('aria-label', `Card ${card.id + 1}, face down`);
+    return;
+  }
+
+  // Face down. The front keeps whatever it last painted rather than being
+  // wiped: the card is mid flip-back at this point and its face is still
+  // turned toward the player, so clearing here makes the fruit vanish a beat
+  // before the card turns away. Nothing leaks, because every reveal repaints
+  // the face while it is still edge-on or further.
+  if (card.state === 'down') {
     element.setAttribute('aria-label', `Card ${card.id + 1}, face down`);
     return;
   }

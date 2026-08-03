@@ -17,6 +17,9 @@
   --fm-wood: #6b4526;
   --fm-wood-dark: #4a2e18;
   --fm-wood-light: #9c6b3f;
+  /* Sanded pine for control faces. Light enough that the dark ink label clears
+     WCAG AA, which --fm-wood-light did not at 3.55:1. */
+  --fm-wood-pale: #d2a970;
   --fm-awning-a: #b03028;
   --fm-awning-b: #f4ead8;
   --fm-bevel-light: #c08a55;
@@ -132,7 +135,7 @@ body {
 
 .signboard__mute,
 .reset-button {
-  background: var(--fm-wood-light);
+  background: var(--fm-wood-pale);
   color: var(--fm-ink);
   font: inherit;
   text-transform: uppercase;
@@ -204,9 +207,19 @@ body {
   perspective: 400px;
 }
 
-.card:focus {
-  outline: 3px solid var(--fm-lcd-on);
+/*
+ * One focus indicator for every control, cards included (SPEC.md §9). The
+ * browser default is a 1px ring that disappears against the wood, and there are
+ * no hover-only affordances anywhere, so focus is carrying the whole load.
+ */
+.card:focus,
+button:focus {
+  outline: 3px solid var(--fm-ink);
   outline-offset: 2px;
+  /* Two-tone: the dark ring carries the contrast on pale controls, the light
+     halo carries it on the dark wood. A single color fails on one or the
+     other, and the ring has to work everywhere it can land. */
+  box-shadow: 0 0 0 6px var(--fm-lcd-on);
 }
 
 .card__inner {
