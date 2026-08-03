@@ -182,9 +182,12 @@ describe('the parity requirement (SPEC.md §4.3)', () => {
   });
 
   it('does not import game state', async () => {
-    const source = await import('node:fs').then((fs) =>
-      fs.readFileSync(new URL('../../js/audio.js', import.meta.url), 'utf8'),
-    );
+    // Resolved from the project root, not from import.meta.url: under the jsdom
+    // environment import.meta.url is the jsdom document URL, so `new URL(...)`
+    // yields an http: URL that readFileSync rejects before any assertion runs.
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const source = readFileSync(resolve(process.cwd(), 'js/audio.js'), 'utf8');
     expect(source).not.toMatch(/from\s+['"]\.\/game\.js['"]/);
     expect(source).not.toMatch(/\brigged\b/);
     expect(source).not.toMatch(/\brigLevel\b/);

@@ -20,6 +20,21 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 04:56 EDT | feat(audio): 8-bit cue engine and mute (task 14)
+
+Added `js/audio.js`: three square-wave cues built from one shared `tone` primitive, a context
+created lazily inside the first cue rather than at module load, and mute persisted into
+`fm.state` with a read-modify-write so task 21's sibling key survives.
+The parity requirement is structural, not incidental: the module imports nothing from the game,
+every cue takes zero arguments, and the only branch in the file is on mute. Covered by 16 unit
+tests including graph-level parity and a source-level guard that no game-state token appears.
+
+Fixed one test that could never reach its assertions. `does not import game state` resolved the
+source path from `import.meta.url`, which under jsdom is the document URL, so `readFileSync`
+threw `ERR_INVALID_URL_SCHEME` first. Resolving from the project root instead let the guard run,
+and it immediately caught two prose comments in the implementation, which were reworded. The
+assertion itself is unchanged. Full suite green: 84 unit, 44 e2e.
+
 ## 2026-07-31 07:18 EDT | feat(grid): 6x6 board and card flip (task 13)
 
 Added 36 static cards in a `repeat(6, 1fr)` grid and the two-faced flip: `rotateY` over 180ms,
