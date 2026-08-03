@@ -20,6 +20,27 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-03 05:35 EDT | feat(reshuffle): silent reshuffle and the tally invariant (task 20)
+
+Added `buildEvenMultiset` and `silentReshuffle`, wired into the mismatch path after both cards
+are face down and before the input lock is released, so no frame can show the board changing.
+The multiset is regenerated from the outstanding pair count, never permuted from current values.
+Verified that claim rather than asserting it: swapping in a permutation implementation fails
+exactly the three tally tests and passes the other eight, which is the point of writing them.
+Covered by 11 unit tests, including 200 randomized reroll and reshuffle cycles checked after
+every single one, and 3 e2e proving the silence three ways: no oscillator constructed in the
+reshuffle window, a pixel-identical grid across an attempt in which every hidden identity moved,
+and the same 1000ms cycle time.
+
+Two test corrections, both cases of an assertion outliving what the spec actually promises.
+Task 18's `holds the first card for the whole attempt` ran past the end of the attempt, where
+§7.3 hands every unmatched identity to the reshuffle; it now stops at the boundary. Task 19's
+`commits the rerolled value` assumed the reroll could not return the card's own fruit, which
+§7.2 permits, and was flaky in about one run in ten; it now pins the draw with an injected
+random source. Neither assertion was weakened.
+Also blurred the focus ring before the pixel comparison. It is a consequence of clicking, not of
+the reshuffle. Full suite green: 152 unit, 60 e2e.
+
 ## 2026-08-03 05:24 EDT | feat(reroll): the real reroll selection rules (task 19)
 
 Replaced task 18's stub with `rerollFruit`: exclude the first card's fruit (hard, never

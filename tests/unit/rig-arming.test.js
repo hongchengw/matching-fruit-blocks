@@ -104,8 +104,13 @@ describe('the reroll scope (SPEC.md §2.4)', () => {
     // The second card moved, so the first card standing still is meaningful.
     expect(game.state.cards[6].fruit).toBe('pumpkin');
     expect(game.state.cards[0].fruit).toBe('apple');
-    vi.advanceTimersByTime(1000);
+
+    // Still holding right up to the end of the attempt. Past that boundary the
+    // card is face down and task 20's reshuffle owns every unmatched identity,
+    // so asserting beyond here would be asserting the wrong thing.
+    vi.advanceTimersByTime(999 - DEFAULT_FLIP_MS);
     expect(game.state.cards[0].fruit).toBe('apple');
+    expect(game.state.cards[0].state).toBe('up');
   });
 
   it('rerolls the second card only when rigged', () => {

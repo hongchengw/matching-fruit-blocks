@@ -92,6 +92,10 @@ test('the reshuffle produces no visual change', async ({ page }) => {
   );
   await page.waitForTimeout(400);
 
+  // Drop the focus ring the click left behind. It is a legitimate consequence
+  // of clicking, not of the reshuffle, and this test is about the reshuffle.
+  await page.evaluate(() => document.activeElement?.blur());
+
   const after = await grid.screenshot();
   const identitiesAfter = await page.evaluate(() =>
     window.__fmTest.cards().map((c) => c.fruit).join(),

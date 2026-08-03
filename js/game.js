@@ -55,6 +55,48 @@ export function buildDeck(random = Math.random) {
   }));
 }
 
+/**
+ * A multiset of `pairs` pairs spread over the six fruits, every count even.
+ *
+ * Regenerated from the pair count rather than derived from what is on the
+ * board, which is the entire point: see `silentReshuffle`.
+ */
+export function buildEvenMultiset(pairs, random = Math.random) {
+  const perFruit = FRUITS.map(() => Math.floor(pairs / FRUITS.length));
+  // Hand out the leftover pairs at random so the surplus fruit is not always
+  // the first one in the list.
+  const spare = shuffle([...FRUITS.keys()], random);
+  for (let i = 0; i < pairs % FRUITS.length; i += 1) {
+    perFruit[spare[i]] += 1;
+  }
+  return FRUITS.flatMap((fruit, i) => Array(perFruit[i] * 2).fill(fruit));
+}
+
+/**
+ * Reshuffle every unmatched identity, silently (SPEC.md §7.3).
+ *
+ * No animation, no sound, no visual change. Only hidden identities move. An
+ * animated shuffle would be honest, and would tell the player that memory is
+ * futile; silence keeps them trying.
+ *
+ * The multiset is **regenerated** from the outstanding pair count, never
+ * permuted from the current values. Permuting is the intuitive implementation
+ * and it is wrong: task 19's reroll leaves one fruit with an odd count, and a
+ * permutation preserves that faithfully, so a player who flips around and
+ * tallies finds a provably unsolvable board. Regenerating repairs it every
+ * time, and the board always looks solvable.
+ *
+ * `lastShown` is deliberately left alone; task 19's exclusion 2 depends on it.
+ */
+export function silentReshuffle(cards, matches, random = Math.random) {
+  const unmatched = cards.filter((card) => card.state !== 'locked');
+  const fruits = shuffle(buildEvenMultiset(PAIR_COUNT - matches, random), random);
+  unmatched.forEach((card, index) => {
+    card.fruit = fruits[index];
+  });
+  return cards;
+}
+
 // ---------------------------------------------------------------------------
 // State machine
 // ---------------------------------------------------------------------------
@@ -191,8 +233,9 @@ export function createGame({
       first.state = 'down';
       second.state = 'down';
       state.first = null;
-      // Task 20 reshuffles here, after both cards are face down and before the
-      // lock is released, so no frame shows the board changing.
+      // After both cards are face down and before the lock is released, so no
+      // frame can show the board changing (SPEC.md §7.3).
+      silentReshuffle(state.cards, state.matches, random);
       state.busy = false;
       onChange(state);
     }, MISMATCH_DELAY_MS);

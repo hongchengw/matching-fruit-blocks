@@ -126,21 +126,26 @@ describe('the reroll in the loop', () => {
     vi.useRealTimers();
   });
 
-  function riggedGame() {
+  function riggedGame(options = {}) {
     const deck = ['apple', 'banana', 'carrot', 'corn', 'tomato', 'pumpkin']
       .flatMap((fruit) => Array(6).fill(fruit))
       .map((fruit, id) => ({ id, fruit, state: 'down', lastShown: null }));
-    const game = createGame({ deck, rigLevel: 0 });
-    return game;
+    return createGame({ deck, rigLevel: 0, ...options });
   }
 
   it('commits the rerolled value to the card', () => {
-    const game = riggedGame();
+    // Deterministic random, because the reroll may legitimately land back on
+    // the card's own fruit: SPEC.md §7.2 excludes the first card's fruit and
+    // lastShown, and nothing else. Pinning the draw makes "the new value was
+    // committed" observable rather than probabilistic.
+    const game = riggedGame({ random: () => 0.99 });
+    expect(game.state.cards[6].fruit).toBe('banana');
+
     game.flip(0);
     game.flip(6);
     vi.advanceTimersByTime(DEFAULT_FLIP_MS);
-    expect(game.state.cards[6].fruit).not.toBe('banana');
-    expect(game.state.cards[6].fruit).not.toBe('apple');
+
+    expect(game.state.cards[6].fruit).toBe('pumpkin');
     expect(FRUITS).toContain(game.state.cards[6].fruit);
   });
 
