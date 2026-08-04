@@ -9,7 +9,7 @@
 
 Farmer's Match is a browser-based pixel-art memory card game with a farmer's-market-stall aesthetic. The player flips face-down cards on a 6x6 grid trying to find matching pairs of produce.
 
-For the first five matches of a round the game is completely honest. After that it silently becomes **impossible to win** for the rest of that round. There is no win screen, no game-over screen, and no end state.
+For the first five matches of a round the game is completely honest. After that it silently becomes **impossible to complete** for the rest of that round: matches still land, rarely and ever more rarely, but the board can never be cleared. There is no win screen, no game-over screen, and no end state.
 
 Reset starts a new round and restores the honest phase. The rig is per round, not permanent: a player who starts over gets five honest matches again, and hits the same wall again. See §2.7 and §8.
 
@@ -30,6 +30,7 @@ There are four such channels, and each one has a named invariant and a dedicated
 | **Visual** | Seeing the sprite change | No rendered frame ever shows the pre-swap fruit face-on | 18 |
 | **Audio** | A rigged failure sounding different | Rigged and honest mismatch cues are identical | 14 |
 | **Tally** | Counting fruits and finding an odd count | Every unmatched fruit count is always even | 20 |
+| **Statistical** | A match rate of exactly zero, which no real memory failure produces | The rigged match rate is nonzero and decays; only the last pair is absolute | 26 |
 | **Persistence** | The rig behaving inconsistently across sessions | State is deterministic and survives reload | 21 |
 
 ---
@@ -72,11 +73,15 @@ After every failed attempt **in the rigged phase**, once both cards are face-dow
 
 **Known cost, accepted deliberately.** The reshuffle now begins at the exact moment the rig arms, so its onset is correlated with the wall rather than being present from the first attempt. A player with a good memory could in principle notice that their recall stopped working precisely when their matches stopped landing. This was weighed and accepted. **Do not "seal" it by reverting the gate.** If it needs sealing, it is sealed by changing *when the rig arms*, never by taking the player's memory away before it does.
 
-### 2.6 Scoreboard: freezes at `rigLevel`/18 forever
+### 2.6 Scoreboard: crawls to 17/18 and stops there forever
 
-`SCORE` and `MATCHES MADE` stop moving the instant the rig arms.
+`SCORE` and `MATCHES MADE` keep moving after the rig arms, but slower and slower, and they stop one pair short of completion.
 
-*Rationale:* the frozen counter is the primary psychological instrument on screen, and its 13 dangling matches are permanently visible. Note this requires no special-case code: the freeze is a natural consequence of `matches` never incrementing again. Do not add logic to force it.
+*Rationale:* the counter is the primary psychological instrument on screen, and a counter that reads **17/18 with two cards still on the board** aims it far more precisely than one frozen at 5/18. Frozen at 5 says "this game is broken." Stalled at 17 says "I am nearly there," for as long as the player can stand it.
+
+Note this still requires no special-case code in the scoreboard. The crawl and the stall are both natural consequences of how often `matches` increments (§7.4). Do not add a freeze branch, a rig check, or a high-water cache to the readout. The source-level guard from task 17 still applies.
+
+*History:* this originally froze the counter at `rigLevel`/18 the instant the rig armed. That was changed in task 26, because a permanently frozen counter is a symptom of the deeper problem §7.4 exists to fix: a match rate of exactly zero.
 
 ### 2.7 Reset: a new round, at the same threshold
 
@@ -310,6 +315,26 @@ Algorithm:
 
 Step 2 is the load-bearing part. Regenerating from the pair count rather than permuting current values repairs the odd counts introduced by §7.2's reroll. Task 20 asserts every unmatched fruit count is even after any sequence of rerolls and reshuffles.
 
+### 7.4 The asymptotic wall
+
+A rigged attempt is not automatically a failure. It is a failure unless **all** of the following hold, in which case the match is allowed to stand:
+
+1. The two cards the player chose are genuinely a true pair, `first.fruit === second.fruit`, before any reroll.
+2. More than one pair is outstanding.
+3. A roll against `matchGrantChance(outstandingPairs)` succeeds.
+
+When a match is granted, **no reroll happens at all**. The second card keeps its own identity, both cards lock, `matches` increments, and the attempt is in every respect an honest match: same cue, same timing, same path through `resolveMatch`.
+
+`matchGrantChance` is a pure function of the outstanding pair count:
+
+- **Zero when one pair or fewer is outstanding.** This is absolute. The final pair never matches, and it is what keeps §1 true.
+- Otherwise it decays as the board empties, so progress slows the closer the player gets.
+- It stays well below an honest player's rate at every point. The player must feel unlucky, never helped.
+
+*Rationale:* this seals a channel §10.3 never listed. Before this rule the rigged match rate was exactly zero, permanently, and zero by construction, because §7.2's first exclusion can never be dropped. A player who misses twenty attempts they were confident about has not experienced memory failure: real memory failure is noisy and noise produces occasional hits. A flawless zero is a signature, and §1 requires that the player never obtain proof. Every other channel here is sealed against a player who is *watching*. That one was open to a player who was merely *counting*, which is easier.
+
+Condition 1 is what keeps the tally invariant intact for free. Granting a match on cards that are not a true pair would mean rewriting one card's fruit and locking it, which takes two of one fruit and leaves another odd, with no reshuffle following a match to repair it (§7.3). Requiring a genuine pair means locking two of the same fruit, which preserves every count by construction.
+
 ---
 
 ## 8. Persistence specification
@@ -370,6 +395,7 @@ These are not optional and must not be weakened:
 | Visual | No captured frame shows the pre-swap fruit face-on | 18 |
 | Audio | Rigged and honest mismatch produce identical node graphs | 14 |
 | Tally | Every unmatched fruit count is even after any reroll/reshuffle sequence | 20 |
+| Statistical | The rigged match rate is nonzero and decays; the last pair never matches | 26 |
 | Persistence | `rigLevel` is stable at 5, survives reload, and Reset does not move it | 21, 25 |
 
 ---
