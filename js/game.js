@@ -198,6 +198,13 @@ export const MISMATCH_DELAY_MS = 1000;
 const MAX_GRANT_CHANCE = 0.16;
 const MIN_GRANT_CHANCE = 0.02;
 
+/*
+ * How often the rig takes the bait when it has one (SPEC.md §7.2 preference 1).
+ * Deliberately not 1. Dangling a remembered fruit on literally every failure is
+ * a pattern, and a pattern is a tell.
+ */
+const NEAR_MISS_CHANCE = 0.75;
+
 /** Honest matches before the rig arms (SPEC.md §2.2). */
 export const DEFAULT_RIG_LEVEL = 5;
 
@@ -340,9 +347,16 @@ export function unmatchedCounts(cards) {
  *      leave nothing to pick. Without it a card can show banana, refuse to
  *      match, and show banana again: a contradiction the player can see.
  *
- * Then a preference, not a filter: favor fruits that are still in play, so the
- * board never displays produce that should not be there. If the preference
- * empties the pool it is ignored, never exclusion 1.
+ * Then two preferences, in order, and neither is a filter:
+ *
+ *   1. a fruit the player has recently seen elsewhere, so the reveal lands as
+ *      "wait, I know where that one is". They go to get it. It is not there,
+ *      and they blame their own memory rather than the game (SPEC.md §7.2).
+ *   2. a fruit still in play, so the board never displays produce that should
+ *      not be there.
+ *
+ * If a preference would empty the pool it is skipped. **Neither can ever
+ * override exclusion 1**: both choose among what the exclusions already left.
  *
  * Pure, and knows nothing about `matches`, `rigLevel`, or `rigged`. Task 18
  * owns the decision to call it at all.
@@ -350,7 +364,14 @@ export function unmatchedCounts(cards) {
  * `fruits` is injectable only so the fallback branch is reachable in a test:
  * with all six, the two exclusions can never empty the candidate set.
  */
-export function rerollFruit(card, firstCard, counts = {}, random = Math.random, fruits = FRUITS) {
+export function rerollFruit(
+  card,
+  firstCard,
+  counts = {},
+  random = Math.random,
+  fruits = FRUITS,
+  recent = [],
+) {
   const withoutFirst = fruits.filter((fruit) => fruit !== firstCard.fruit);
   const candidates = withoutFirst.filter((fruit) => fruit !== card.lastShown);
 
@@ -358,7 +379,11 @@ export function rerollFruit(card, firstCard, counts = {}, random = Math.random, 
   const inPlay = pool.filter((fruit) => (counts[fruit] ?? 0) > 0);
   const choices = inPlay.length > 0 ? inPlay : pool;
 
-  return choices[Math.floor(random() * choices.length)];
+  // The bait, drawn from what survived every exclusion above.
+  const baited = choices.filter((fruit) => recent.includes(fruit));
+  const final = baited.length > 0 && random() < NEAR_MISS_CHANCE ? baited : choices;
+
+  return final[Math.floor(random() * final.length)];
 }
 
 /**
@@ -372,7 +397,8 @@ export function createGame({
   onChange = () => {},
   rigLevel = DEFAULT_RIG_LEVEL,
   random = Math.random,
-  reroll = (card, first, cards) => rerollFruit(card, first, unmatchedCounts(cards), random),
+  reroll = (card, first, cards, recent) =>
+    rerollFruit(card, first, unmatchedCounts(cards), random, FRUITS, recent),
   flipMs = null,
 } = {}) {
   const state = {
@@ -402,6 +428,31 @@ export function createGame({
   let swapping = null;
 
   const cardAt = (id) => state.cards.find((card) => card.id === id);
+
+  /**
+   * Fruits the player has seen recently, somewhere other than this card
+   * (SPEC.md §7.2 preference 1).
+   *
+   * Reuses task 27's recency window rather than defining a second notion of
+   * "recently". Two subtly different definitions of the same idea is how they
+   * drift apart.
+   *
+   * `except` is excluded because a fruit this card itself just showed is
+   * exclusion 2's territory, and baiting with it would produce the visible
+   * self-contradiction that rule exists to prevent.
+   */
+  function recentlySeen(except) {
+    return state.cards
+      .filter(
+        (card) =>
+          card.id !== except.id &&
+          card.state !== 'locked' &&
+          card.lastSeenAt !== null &&
+          state.attempts - card.lastSeenAt < RECENCY_WINDOW,
+      )
+      .map((card) => card.lastShown)
+      .filter(Boolean);
+  }
 
   /** First card of an attempt: always honest, always its own fruit. */
   function reveal(card) {
@@ -556,7 +607,7 @@ export function createGame({
     const commit = () => {
       if (committed) return;
       committed = true;
-      if (rigged) card.fruit = reroll(card, first, state.cards);
+      if (rigged) card.fruit = reroll(card, first, state.cards, recentlySeen(card));
       card.lastShown = card.fruit;
       swapping = null;
       onChange(state);
