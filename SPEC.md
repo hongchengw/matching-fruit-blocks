@@ -9,7 +9,9 @@
 
 Farmer's Match is a browser-based pixel-art memory card game with a farmer's-market-stall aesthetic. The player flips face-down cards on a 6x6 grid trying to find matching pairs of produce.
 
-For the first five matches the game is completely honest. After that it silently becomes **impossible to win**, and it never stops. There is no win screen, no game-over screen, and no end state.
+For the first five matches of a round the game is completely honest. After that it silently becomes **impossible to win** for the rest of that round. There is no win screen, no game-over screen, and no end state.
+
+Reset starts a new round and restores the honest phase. The rig is per round, not permanent: a player who starts over gets five honest matches again, and hits the same wall again. See §2.7 and §8.
 
 ### The design intent, stated plainly
 
@@ -28,7 +30,7 @@ There are four such channels, and each one has a named invariant and a dedicated
 | **Visual** | Seeing the sprite change | No rendered frame ever shows the pre-swap fruit face-on | 18 |
 | **Audio** | A rigged failure sounding different | Rigged and honest mismatch cues are identical | 14 |
 | **Tally** | Counting fruits and finding an odd count | Every unmatched fruit count is always even | 20 |
-| **Persistence** | The curse behaving inconsistently across sessions | State is deterministic and survives reload | 21 |
+| **Persistence** | The rig behaving inconsistently across sessions | State is deterministic and survives reload | 21 |
 
 ---
 
@@ -76,17 +78,21 @@ After every failed attempt **in the rigged phase**, once both cards are face-dow
 
 *Rationale:* the frozen counter is the primary psychological instrument on screen, and its 13 dangling matches are permanently visible. Note this requires no special-case code: the freeze is a natural consequence of `matches` never incrementing again. Do not add logic to force it.
 
-### 2.7 Reset: the curse compounds, 5 -> 4 -> 3 -> 2 -> 1 -> 0
+### 2.7 Reset: a new round, at the same threshold
 
-Each press of Reset decrements `rigLevel` by 1, floored at 0. Persisted to `localStorage`.
+Reset reshuffles the board and clears `matches`. It does **not** change `rigLevel`, which stays at 5. The honest phase is available again, and the wall arrives in the same place.
 
-*Rationale:* punishes the instinct to start over. The player's natural response to being stuck is to reset, and each reset shortens the honest phase until at `rigLevel: 0` the very first attempt of a fresh board fails. Trying harder makes it worse.
+*Rationale:* the rig is per round. A player who resets gets another five honest matches and hits the same wall again, so starting over neither helps nor hurts. What it does not do is offer a way past the wall: within a round, once the rig arms, nothing the player does inside the game will make a match.
 
-### 2.8 Escape: none
+*History:* this reverses the original design, in which each Reset decremented `rigLevel` and the honest phase shortened 5, 4, 3, 2, 1, 0 until the very first attempt of a fresh board failed forever. That was built in task 21 and removed in task 25 at the project owner's direction after playing it. It is recorded here because the code and the tests both used to encode it and a reader may meet its remains in the history.
 
-No hidden reset, no Konami code, no time-based decay, no UI hint. Clearing browser storage is the only way out and the game never mentions it.
+### 2.8 Escape: only by starting a new round
 
-*Rationale:* an escape hatch would reframe the game as a puzzle with a solution. There is no solution.
+No hidden reset, no Konami code, no time-based decay, no UI hint, and nothing that lifts the rig inside a round once it has armed.
+
+Reset is the single exception, and it is not a way to *beat* a round: it abandons the current one. The wall is unavoidable in every round and no sequence of inputs gets past it.
+
+*Rationale:* an escape hatch within a round would reframe the game as a puzzle with a solution. There is no solution. Being able to walk away and start again is not a solution, it is just leaving.
 
 ### 2.9 Art: hand-authored pixel arrays rendered to per-card `<canvas>`
 
@@ -311,9 +317,9 @@ Step 2 is the load-bearing part. Regenerating from the pair count rather than pe
 - **Key:** `fm.state` in `localStorage`.
 - **Shape:** `{ rigLevel: number, muted: boolean }`. Board state is not persisted; a reload starts a fresh board at the stored `rigLevel`.
 - **Missing or corrupt value:** fall back to `{ rigLevel: 5, muted: false }` and overwrite.
-- **On Reset:** reshuffle the board, `matches = 0`, `rigLevel = Math.max(0, rigLevel - 1)`, write to storage.
-- **At `rigLevel: 0`:** `rigged` is true from the first attempt of a fresh board. The player never makes a single match again.
-- **No escape hatch.** No UI affordance, no keyboard shortcut, no decay over time clears the curse.
+- **On Reset:** reshuffle the board and set `matches = 0`. `rigLevel` is **not** written and does not change (§2.7).
+- **`rigLevel` is stable.** It is read at load, clamped to 0 through 5 against tampering, and otherwise left alone. Nothing in normal play writes it.
+- **No escape hatch within a round.** No UI affordance, no keyboard shortcut, no decay over time lifts the rig once it has armed. Reset starts a new round rather than rescuing the current one.
 
 ---
 
@@ -364,7 +370,7 @@ These are not optional and must not be weakened:
 | Visual | No captured frame shows the pre-swap fruit face-on | 18 |
 | Audio | Rigged and honest mismatch produce identical node graphs | 14 |
 | Tally | Every unmatched fruit count is even after any reroll/reshuffle sequence | 20 |
-| Persistence | `rigLevel` decrements to a floor of 0 and survives reload | 21 |
+| Persistence | `rigLevel` is stable at 5, survives reload, and Reset does not move it | 21, 25 |
 
 ---
 
