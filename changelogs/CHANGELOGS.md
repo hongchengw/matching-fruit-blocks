@@ -20,6 +20,45 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 04:59 EDT | docs(tasks): five tasks from the second QA pass
+
+Added tasks 26 through 30 and indexed them in `tasks/README.md` under a second post-QA group.
+Documentation only: no `SPEC.md` amendment and no code, both of which belong to the tasks.
+
+**Task 26 is the one that matters and it is a real hole, not a refinement.** §10.3 seals four
+channels and there is a fifth nobody listed. After the wall the match rate is exactly zero,
+permanently, and zero by construction, since `rerollFruit` excludes the first card's fruit as a
+rule that is never dropped. A player who misses twenty attempts they were confident about has not
+experienced memory failure, because real memory failure is noisy and noise produces occasional
+hits. A flawless zero is a signature, and §1 says certainty is a failure of the design. Every
+other channel here is sealed against a player who is watching; this one is open to a player who is
+merely counting, which is easier. The task proposes an asymptotic wall: matches get rarer as the
+board empties and the last pair never matches, so the counter crawls to 17 of 18 and stops. That
+seals the channel and points §2.6's own instrument at the player far more precisely, but it
+requires amending §2.6's frozen counter, so the task is written to stop and get sign-off before
+any code is written.
+
+Task 27 seals the tell task 24 knowingly created. The board is now flawless for five matches and
+then starts moving on the next failure, so recall and matches stop working at the same instant and
+two coincident signals are easy to correlate. Reshuffling only cards the player has not seen
+recently makes the rot look like forgetting, which takes old things first. The task flags where
+the difficulty actually is: §7.3 keeps fruit counts even by regenerating the whole unmatched
+multiset, and freezing a subset means the regeneration must work around cards it no longer
+controls. That is the tally invariant, and the task says to write its test first.
+
+Task 28 biases the rigged reroll toward fruits the player saw a few attempts ago, engineering the
+moment where they think they know where the twin is. A player chasing a remembered card generates
+their own explanation for every failure, which is the payload §1 asks for. The task makes the
+first exclusion rule adversarially tested rather than assumed, since a preference that could
+override it would make the game winnable by accident.
+
+Tasks 29 and 30 are presentation. 29 carries a trap worth the spec reference it has: card-back
+variation must bind to the grid slot and never to the card, or a player can track a card through a
+reshuffle and watch its fruit change, which is the visual channel reopened by a decorative change.
+30 puts ambience in its own module rather than `js/audio.js`, because that file's structural
+guarantee that no game state can reach it is one of the cleanest safety properties in the
+codebase, and ambience is the first thing anyone would be tempted to make reactive.
+
 ## 2026-08-04 04:21 EDT | feat(reset): make the rig per round instead of permanent (task 25)
 
 Reset no longer decrements `rigLevel`. It reshuffles the board and clears `matches`, leaving the
