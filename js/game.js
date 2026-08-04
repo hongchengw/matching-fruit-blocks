@@ -52,6 +52,14 @@ export function buildDeck(random = Math.random) {
     fruit,
     state: 'down',
     lastShown: null,
+    /*
+     * The attempt number at which the player last saw this card (SPEC.md §7.3).
+     * Deliberately separate from `lastShown`, which records *what* was shown
+     * for task 19's exclusion rule. This records *when*, for task 27's recency
+     * window, and overloading one onto the other would couple two unrelated
+     * rules to the same field.
+     */
+    lastSeenAt: null,
   }));
 }
 
@@ -73,26 +81,98 @@ export function buildEvenMultiset(pairs, random = Math.random) {
 }
 
 /**
- * Reshuffle every unmatched identity, silently (SPEC.md §7.3).
+ * How many attempts a card stays warm after the player has seen it (SPEC.md
+ * §2.5, §7.3). One constant, because the window is felt rather than seen and a
+ * second copy of it would drift.
+ */
+export const RECENCY_WINDOW = 3;
+
+/**
+ * Build the multiset for the cold slots.
+ *
+ * The whole difficulty of the cold-card reshuffle lives here. Regenerating the
+ * entire board was free, because the regenerator owned every slot and could
+ * simply emit even counts. It no longer owns the warm slots, so it has to build
+ * around whatever fruits those are holding: for every fruit, the number it
+ * emits must have the same parity as the number the warm cards already hold, or
+ * the total comes out odd and the tally channel opens (SPEC.md §10.3).
+ *
+ * A solution always exists when `slots >= oddCount`, and that is guaranteed
+ * rather than lucky: the unmatched total is even, so `slots` and `oddCount`
+ * always share a parity, and their difference can always be paid out in pairs.
+ */
+function buildComplementMultiset(warmFruits, slots, random) {
+  const held = FRUITS.map((fruit) => warmFruits.filter((f) => f === fruit).length);
+  const perFruit = held.map((n) => n % 2);
+  const required = perFruit.reduce((a, b) => a + b, 0);
+  if (slots < required) return null;
+
+  // Whatever is left over after parity is paid, handed out two at a time so
+  // every count stays even. Randomised so the surplus is not always the first
+  // fruit in the list.
+  const spare = (slots - required) / 2;
+  const order = shuffle([...FRUITS.keys()], random);
+  for (let i = 0; i < spare; i += 1) {
+    perFruit[order[i % FRUITS.length]] += 2;
+  }
+  return FRUITS.flatMap((fruit, i) => Array(perFruit[i]).fill(fruit));
+}
+
+/**
+ * Reshuffle the identities the player has forgotten, silently (SPEC.md §7.3).
  *
  * No animation, no sound, no visual change. Only hidden identities move. An
  * animated shuffle would be honest, and would tell the player that memory is
  * futile; silence keeps them trying.
  *
- * The multiset is **regenerated** from the outstanding pair count, never
- * permuted from the current values. Permuting is the intuitive implementation
- * and it is wrong: task 19's reroll leaves one fruit with an odd count, and a
- * permutation preserves that faithfully, so a player who flips around and
- * tallies finds a provably unsolvable board. Regenerating repairs it every
- * time, and the board always looks solvable.
+ * **Only cold cards move.** A card the player revealed within `RECENCY_WINDOW`
+ * attempts keeps its identity. Forgetting takes old things first: a board that
+ * contradicts the pair you saw four seconds ago is not memory failure, it is
+ * obviously a lie, while one that confirms your recent memories and rots the
+ * older ones is what an overloaded memory actually feels like.
+ *
+ * The multiset is **regenerated**, never permuted from the current values.
+ * Permuting is the intuitive implementation and it is wrong: task 19's reroll
+ * leaves one fruit with an odd count, and a permutation preserves that
+ * faithfully, so a player who flips around and tallies finds a provably
+ * unsolvable board.
+ *
+ * `now` is the current attempt number. Without one nothing can be warm, so the
+ * whole unmatched board is eligible, which is the pre-task-27 behaviour and
+ * what a direct caller with no clock should get.
  *
  * `lastShown` is deliberately left alone; task 19's exclusion 2 depends on it.
  */
-export function silentReshuffle(cards, matches, random = Math.random) {
+export function silentReshuffle(cards, matches, random = Math.random, now = null) {
   const unmatched = cards.filter((card) => card.state !== 'locked');
-  const fruits = shuffle(buildEvenMultiset(PAIR_COUNT - matches, random), random);
-  unmatched.forEach((card, index) => {
-    card.fruit = fruits[index];
+
+  const isWarm = (card) =>
+    now !== null && card.lastSeenAt !== null && now - card.lastSeenAt < RECENCY_WINDOW;
+
+  // Coldest first, so that if the warm set has to give ground it gives up its
+  // stalest members before its freshest (SPEC.md §7.3).
+  let warm = unmatched.filter(isWarm).sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+  let cold = unmatched.filter((card) => !isWarm(card));
+
+  let fruits = buildComplementMultiset(
+    warm.map((card) => card.fruit),
+    cold.length,
+    random,
+  );
+  // No assignment keeps the counts even, so release the stalest warm card and
+  // try again. The tally invariant is not negotiable; the window is.
+  while (fruits === null && warm.length > 0) {
+    cold.push(warm.pop());
+    fruits = buildComplementMultiset(
+      warm.map((card) => card.fruit),
+      cold.length,
+      random,
+    );
+  }
+
+  const shuffled = shuffle(fruits ?? buildEvenMultiset(PAIR_COUNT - matches, random), random);
+  cold.forEach((card, index) => {
+    card.fruit = shuffled[index];
   });
   return cards;
 }
@@ -301,6 +381,13 @@ export function createGame({
     matches: 0,
     rigLevel,
     busy: false,
+    /*
+     * Attempts made this round, used only as the clock for the recency window
+     * (SPEC.md §7.3). It is not a score, is never displayed, and nothing
+     * branches on it: a second counter the player could read would be a channel
+     * of its own.
+     */
+    attempts: 0,
 
     /**
      * Derived, never stored (SPEC.md §5). A stored flag could drift out of sync
@@ -320,6 +407,7 @@ export function createGame({
   function reveal(card) {
     card.state = 'up';
     card.lastShown = card.fruit;
+    card.lastSeenAt = state.attempts;
     beepFlip();
   }
 
@@ -353,7 +441,7 @@ export function createGame({
        * frame can show the board changing and no stopwatch can see the honest
        * path skipping work.
        */
-      if (rigged) silentReshuffle(state.cards, state.matches, random);
+      if (rigged) silentReshuffle(state.cards, state.matches, random, state.attempts);
       state.busy = false;
       onChange(state);
     }, MISMATCH_DELAY_MS);
@@ -378,6 +466,12 @@ export function createGame({
 
     state.busy = true;
     const first = cardAt(state.first);
+
+    // A new attempt begins when the second card is chosen. Both cards carry the
+    // same stamp, so the pair the player just looked at goes cold together
+    // rather than one of them a beat before the other (SPEC.md §7.3).
+    state.attempts += 1;
+    first.lastSeenAt = state.attempts;
 
     // Captured before the outcome is resolved: a match increments `matches`,
     // which could flip the getter true between here and the swap deadline and
@@ -452,6 +546,7 @@ export function createGame({
    */
   function revealSecond(card, first, rigged) {
     card.state = 'up';
+    card.lastSeenAt = state.attempts;
     swapping = card.id;
     beepFlip();
 
@@ -503,6 +598,7 @@ export function createGame({
     state.matches = 0;
     state.first = null;
     state.busy = false;
+    state.attempts = 0;
     swapping = null;
     state.cards = buildDeck(random);
     onChange(state);

@@ -20,7 +20,17 @@ describe('buildDeck', () => {
 
   it('gives every card the state model shape', () => {
     for (const card of buildDeck()) {
-      expect(Object.keys(card).sort()).toEqual(['fruit', 'id', 'lastShown', 'state']);
+      // `lastSeenAt` joined the shape in task 27 (SPEC.md §5, §7.3). It records
+      // *when* the player last saw a card, for the recency window, and is
+      // deliberately separate from `lastShown`, which records *what* they saw,
+      // for task 19's exclusion rule.
+      expect(Object.keys(card).sort()).toEqual([
+        'fruit',
+        'id',
+        'lastSeenAt',
+        'lastShown',
+        'state',
+      ]);
     }
   });
 

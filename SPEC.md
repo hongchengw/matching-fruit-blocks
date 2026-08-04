@@ -245,14 +245,25 @@ A toggle mounted on the signboard, persisted in `localStorage` alongside the res
 ```js
 {
   cards: [
-    { id: 0..35, fruit: 'apple'|..., state: 'down'|'up'|'locked', lastShown: fruit|null }
+    {
+      id: 0..35,
+      fruit: 'apple'|...,
+      state: 'down'|'up'|'locked',
+      lastShown: fruit|null,   // WHAT the player last saw here (§7.2 exclusion 2)
+      lastSeenAt: number|null, // WHEN, as an attempt number (§7.3 recency window)
+    }
   ],
   first: null,      // card id of the first flipped card this attempt, else null
-  matches: 0,       // honest matches made this run
+  matches: 0,       // matches made this round
   rigLevel: 5,      // loaded from localStorage; threshold at which the rig arms
   busy: false,      // input lock while an animation or flip-back timer runs
+  attempts: 0,      // attempts made this round; the clock for §7.3 only
 }
 ```
+
+`lastShown` and `lastSeenAt` are deliberately two fields. They serve unrelated rules and overloading one onto the other would couple them.
+
+`attempts` is a clock, not a score. It is never displayed and nothing branches on it. A second counter the player could read would be a channel of its own.
 
 - `rigged` is a **derived getter**, never a stored flag: `get rigged() { return this.matches >= this.rigLevel }`.
 - `lastShown` records the fruit a card most recently displayed face-on. Used only by `rerollFruit` (§7.2).
