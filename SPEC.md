@@ -71,7 +71,11 @@ After every failed attempt **in the rigged phase**, once both cards are face-dow
 
 *Rationale for the gate:* §2.2 rests on the player building a working model of a fair game and attributing their early success to skill. A board that reshuffles under them was never fair in the way that argument needs, because memory could not have been what earned those five matches. Making the honest phase genuinely memorable is what gives the rig something real to contradict.
 
-**Known cost, accepted deliberately.** The reshuffle now begins at the exact moment the rig arms, so its onset is correlated with the wall rather than being present from the first attempt. A player with a good memory could in principle notice that their recall stopped working precisely when their matches stopped landing. This was weighed and accepted. **Do not "seal" it by reverting the gate.** If it needs sealing, it is sealed by changing *when the rig arms*, never by taking the player's memory away before it does.
+**Only cold cards move.** A card the player revealed within the last few attempts keeps its identity; only cards they have not looked at recently are eligible to be reshuffled (§7.3).
+
+*Rationale:* forgetting takes old things first. A board that contradicts the pair you saw four seconds ago is not memory failure, it is obviously a lie. A board that confirms your recent memories and quietly rots the older ones is exactly what an overloaded memory feels like, and it is far harder to distrust.
+
+This also removes the tell task 24 created and knowingly accepted. When the reshuffle moved everything, it began at the exact moment the rig armed, so recall and matches stopped working in the same instant and two coincident signals are easy to correlate. With only cold cards eligible, most of the board is already cold when the rig arms, the change is invisible at the boundary, and the rot stays just behind the player from then on.
 
 ### 2.6 Scoreboard: crawls to 17/18 and stops there forever
 
@@ -309,9 +313,14 @@ The gate is on `rigged` and on nothing else: not on `matches`, not on a separate
 
 Algorithm:
 
-1. Count outstanding pairs: `18 - matches`.
-2. Regenerate the unmatched multiset from that pair count, distributing across the six fruits so **every fruit count is even**.
-3. Fisher-Yates shuffle the multiset and assign to the unmatched cards.
+1. Partition the unmatched cards into **warm** and **cold**. A card is warm if the player revealed it within the last few attempts; the window is one named constant.
+2. Count outstanding pairs: `18 - matches`.
+3. Regenerate a multiset for the **cold slots only**, such that the cold multiset **plus the warm cards' existing fruits** leaves every fruit count even across the whole unmatched board.
+4. Fisher-Yates shuffle that multiset and assign it to the cold slots. Warm cards are not touched.
+
+Step 3 is where the work is. Regenerating the whole board was free, because the regenerator controlled every slot. It no longer does, so it must build around the fruits the warm cards are holding.
+
+**If no assignment satisfies the even-count requirement, shrink the warm set** (release the oldest warm cards first) until one does. The tally invariant is not negotiable and the recency window is.
 
 Step 2 is the load-bearing part. Regenerating from the pair count rather than permuting current values repairs the odd counts introduced by §7.2's reroll. Task 20 asserts every unmatched fruit count is even after any sequence of rerolls and reshuffles.
 
