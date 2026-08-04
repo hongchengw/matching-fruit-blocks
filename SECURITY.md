@@ -137,9 +137,10 @@ rig threshold when used alongside it. There is no build step to strip them, so t
 
 Note that a player who finds `&fm-rig=999` can play the honest game indefinitely for as long as
 they keep the parameter in the URL. That is not a security matter, and it is not an escape from
-the curse either, which `SPEC.md` §2.8 requires there be none of. The parameter is never
-written to storage, and `sanitizeRigLevel` clamps whatever is read back to 0 through 5, so even
-pressing Reset while the override is active cannot persist a raised threshold.
+the rig either, which `SPEC.md` §2.8 requires there be none of within a round. The parameter is
+never written to storage: since task 25, `reset` does not write `rigLevel` at all, and
+`sanitizeRigLevel` clamps whatever is read back to 0 through 5, so an inflated threshold cannot
+outlive the tab it was typed into.
 
 ## Reporting
 

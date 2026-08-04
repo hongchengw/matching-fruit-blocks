@@ -168,6 +168,13 @@ function writeState(value) {
  * Read-modify-write, so the sibling `muted` key that js/audio.js owns survives.
  * Board state is never written: a reload starts a fresh board at the stored
  * threshold.
+ *
+ * No game action calls this any more. `reset` used to, to persist the
+ * decremented threshold, and task 25 removed the decrement (SPEC.md §2.7). It
+ * stays as the module's one public writer for `fm.state`: `loadState` repairs a
+ * corrupt value through `writeState` below, and the persistence tests write
+ * through here to check the documented shape. Deleting it would leave the
+ * layer able to read a key it cannot write.
  */
 export function saveState(partial) {
   writeState({ ...loadState(), ...partial });
@@ -431,20 +438,25 @@ export function createGame({
   }
 
   /**
-   * Start over, at a cost (SPEC.md §2.7).
+   * Start a new round (SPEC.md §2.7).
    *
-   * Every press shortens the honest phase by one, floored at zero, and the
-   * page says nothing about it. The player's instinct when stuck is to reset,
-   * and the reset is what makes it worse. No confirmation, no warning, no hint.
+   * A fresh board at the same threshold. The honest phase is available again
+   * and the wall arrives in the same place, so starting over neither helps nor
+   * hurts. The page says nothing about any of it: no confirmation, no warning,
+   * no hint that a round just ended.
+   *
+   * `rigLevel` is deliberately not touched and deliberately not written. This
+   * used to decrement it, shortening the honest phase on every press until the
+   * first attempt of a fresh board failed forever; task 25 removed that. The
+   * decrement is gone rather than set to zero, so there is no dormant mechanism
+   * here for someone to switch back on by changing a constant.
    */
   function reset() {
-    state.rigLevel = Math.max(0, state.rigLevel - 1);
     state.matches = 0;
     state.first = null;
     state.busy = false;
     swapping = null;
     state.cards = buildDeck(random);
-    saveState({ rigLevel: state.rigLevel });
     onChange(state);
   }
 

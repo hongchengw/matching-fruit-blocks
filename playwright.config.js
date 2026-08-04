@@ -20,19 +20,21 @@ export default defineConfig({
    */
   workers: 3,
   /*
-   * One retry, for browser-level faults only.
+   * Retries for browser-level faults only.
    *
    * Firefox intermittently fails `browserContext.close` with a juggler protocol
    * error ("can't access property _maybeDontRestoreTabs") after the test body
    * has already passed. That is the driver tearing down a window, not anything
-   * this project controls, and it lands on a different test each time.
+   * this project controls, and it lands on a different test each run. Two,
+   * because it has been observed hitting an attempt and its retry in the same
+   * run while the same file passed 28 of 28 in isolation immediately after.
    *
-   * This does not hide anything. Playwright reports a test that needed its
-   * retry as "flaky", not as "passed", and a flaky result here is a defect to
+   * This does not hide anything. Playwright reports a test that needed a retry
+   * as "flaky", not as "passed", and a flaky result here is a defect to
    * investigate rather than a green light. A test that actually fails still
-   * fails both attempts.
+   * fails every attempt.
    */
-  retries: 1,
+  retries: 2,
   use: {
     baseURL: `http://localhost:${PORT}`,
   },

@@ -20,6 +20,49 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 04:21 EDT | feat(reset): make the rig per round instead of permanent (task 25)
+
+Reset no longer decrements `rigLevel`. It reshuffles the board and clears `matches`, leaving the
+threshold at 5, so the honest phase returns on every new round and the wall arrives in the same
+place. The game is now unwinnable per round rather than permanently.
+
+**This reverses a design pillar, at the project owner's direction, after they played the game.**
+Task 21 built the compounding curse deliberately and `AGENTS.md` says in as many words that the
+rig is not a bug and must not be softened. That instruction stands for everything else: the rig,
+the reroll, the silent reshuffle, the frozen counter and the absent win screen are all untouched.
+What changed is the scope of the punishment, and only that.
+
+The spec was amended first and honestly. §2.7 is rewritten rather than hollowed out, since its
+entire rationale was punishing the instinct to start over, and it now records the removed
+behavior so a reader meeting its remains in the history knows what they are looking at. §1 says
+plainly that the game is unwinnable per round, because a future reader comparing the code to the
+old §1 would have filed the code as the bug. §8 loses the decrement and the `rigLevel: 0` clause.
+§10.3's persistence invariant becomes stability rather than decay. §2.8 keeps its force
+everywhere it still applies: nothing lifts the rig inside a round, and Reset is not a way to beat
+a round, only to abandon it.
+
+The decrement is deleted rather than set to zero, so no dormant mechanism is left for someone to
+switch back on by changing a constant. `sanitizeRigLevel` stays, because hand-edited storage is a
+separate problem that has not gone away. `saveState` is now called by no game action and is kept
+with a note saying so: `loadState` still repairs a corrupt value through it, and deleting it
+would leave the persistence layer able to read a key it cannot write.
+
+Nine tests asserted the removed behavior and were deleted, each for the same stated reason, that
+a deliberately removed behavior is the only acceptable reason to delete a passing test.
+`compounding-curse.spec.js` became `rig-persistence.spec.js`, named for what it now guards, with
+the threshold's stability, the honest phase returning, the wall still being there in the new
+round, and survival across reload and browser restart. `no escape hatch exists` became `nothing
+but a new round escapes the rig`, keeping the same hammering of every control and cheat code.
+`a full curse cycle` became `every round is honest then walled`, asserting the shape of a round
+repeats exactly rather than decaying. `resetting does not announce itself` survives untouched and
+matters more than it did: the game must not start explaining itself just because it got kinder.
+Also raised Playwright's retries from 1 to 2. Firefox's `browserContext.close` intermittently
+fails with a juggler protocol error after the test body has passed, and it was observed hitting
+an attempt and its retry in the same run while the same file passed 28 of 28 in isolation
+immediately after. Playwright still reports a retried test as flaky rather than passed, so
+nothing is hidden.
+Full suite green: 168 unit, 341 e2e across three engines.
+
 ## 2026-08-04 04:01 EDT | fix(game): hold the honest board still until the rig arms (task 24)
 
 `silentReshuffle` is now gated on `rigged`, so card identities only move once the rig has armed.
