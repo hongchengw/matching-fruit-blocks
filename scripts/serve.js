@@ -11,6 +11,19 @@ const PORT = Number(process.env.PORT) || 4173;
 // .git, so it has no business listening on a LAN-visible interface.
 const HOST = '127.0.0.1';
 
+/*
+ * The same policy index.html carries, plus frame-ancestors, which a meta tag
+ * cannot express (SPEC.md §11.1). Sent on every response so it also covers the
+ * app's other files, and so a production host has something to copy.
+ */
+const CSP = [
+  "default-src 'self'",
+  "connect-src 'none'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -54,13 +67,16 @@ createServer(async (req, res) => {
 
   try {
     const body = await readFile(path);
-    res.writeHead(200, { 'Content-Type': MIME[extname(path)] ?? 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[extname(path)] ?? 'application/octet-stream',
+      'Content-Security-Policy': CSP,
+    });
     res.end(body);
   } catch {
     // index.html does not exist until task 11. Serve a bare document so the
     // runner itself is verifiable before the app has any markup.
     if (requested === '/index.html') {
-      res.writeHead(200, { 'Content-Type': MIME['.html'] });
+      res.writeHead(200, { 'Content-Type': MIME['.html'], 'Content-Security-Policy': CSP });
       res.end('<!doctype html><html><head><title>Farmer\'s Match</title></head><body></body></html>');
       return;
     }

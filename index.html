@@ -3,6 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      SPEC.md §11.1. connect-src 'none' is the operative directive: it refuses
+      fetch, XHR, WebSocket, and sendBeacon, so the no-network rule is enforced
+      by the browser rather than by review. It lives in the document so it holds
+      however the app is served, including from a host that sends no headers.
+      frame-ancestors is absent deliberately: it is ignored in a meta tag by
+      specification, so scripts/serve.js sends it as a real header instead.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
     <title>Farmer's Match</title>
     <link rel="stylesheet" href="css/style.css" />
   </head>
