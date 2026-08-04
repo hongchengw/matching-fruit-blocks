@@ -238,14 +238,16 @@ test.describe('the full playthrough', () => {
       expect(shapes, `mismatch cue shapes: ${shapes.join(' | ')}`).toHaveLength(1);
     }
 
-    // Persistence invariant.
+    // Persistence invariant. Since task 25 the threshold is stable rather than
+    // decaying, so what has to hold is that nothing moves it: not a reset, not
+    // a reload, not a whole round of rigged play.
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fm.state')).rigLevel)).toBe(
       5,
     );
     await page.locator('[data-control="reset"]').click();
     await page.reload();
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('fm.state')).rigLevel)).toBe(
-      4,
+      5,
     );
   });
 
@@ -279,25 +281,39 @@ test.describe('the full playthrough', () => {
     }
   });
 
-  test('a full curse cycle', async ({ page }) => {
+  test('every round is honest then walled', async ({ page }) => {
+    // Replaces `a full curse cycle`, which played to the wall five times and
+    // asserted the honest phase shortened 4, 3, 2, 1, 0 until the first attempt
+    // of a fresh board failed forever. Task 25 removed the compounding curse at
+    // the owner's direction, so that behavior no longer exists to assert.
+    //
+    // The property that replaces it is the one the game now has: the shape of a
+    // round repeats exactly, round after round. Five honest matches, then a
+    // wall, then a reset that restores neither more nor less than it should.
     test.setTimeout(180_000);
     await page.goto(TEST_PAGE);
 
-    for (const expected of [4, 3, 2, 1, 0]) {
-      // Play until the wall, then start over, which is what shortens it.
-      const pair = await findPair(page);
-      if (pair) await attempt(page, pair);
-      await page.locator('[data-control="reset"]').click();
+    for (let round = 1; round <= 3; round += 1) {
       expect(
         await page.evaluate(() => JSON.parse(localStorage.getItem('fm.state')).rigLevel),
-      ).toBe(expected);
-    }
+        `rigLevel drifted by round ${round}`,
+      ).toBe(5);
+      expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(false);
 
-    // Sixth run: rigged from the very first click.
-    expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(true);
-    await attempt(page, await findPair(page));
-    expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(0);
-    expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(0);
+      for (let i = 0; i < 5; i += 1) {
+        const pair = await findPair(page);
+        expect(pair, `round ${round}, honest match ${i + 1}`).not.toBeNull();
+        await attempt(page, pair);
+      }
+      expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+      expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(true);
+
+      // The wall, in every round.
+      await attempt(page, await findPair(page));
+      expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+
+      await page.locator('[data-control="reset"]').click();
+    }
   });
 });
 

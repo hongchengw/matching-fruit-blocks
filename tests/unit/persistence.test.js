@@ -72,24 +72,42 @@ describe('loading', () => {
 });
 
 describe('reset', () => {
-  it('decrements rigLevel by one', () => {
+  /*
+   * `decrements rigLevel by one`, `floors at zero` and `arms the rig
+   * immediately once rigLevel reaches 0` used to live here. Task 25 removed the
+   * compounding curse at the owner's direction, so the behavior they guarded no
+   * longer exists. They are deleted rather than adjusted, because a deliberately
+   * removed behavior is the only acceptable reason to delete a passing test, and
+   * the tests below assert the opposite property instead.
+   */
+
+  it('leaves rigLevel alone', () => {
     const game = createGame({ deck: buildDeck(), rigLevel: 5 });
-    game.reset();
-    expect(game.state.rigLevel).toBe(4);
-    game.reset();
-    expect(game.state.rigLevel).toBe(3);
-    expect(loadState().rigLevel).toBe(3);
+    for (let i = 0; i < 10; i += 1) game.reset();
+    expect(game.state.rigLevel).toBe(5);
+    expect(loadState().rigLevel).toBe(5);
   });
 
-  it('floors at zero', () => {
-    // A negative threshold would still satisfy matches >= rigLevel, but the
-    // floor keeps the state readable and the intent explicit.
+  it('restores the honest phase', () => {
+    // Reset abandons the round rather than rescuing it, but the new round is
+    // honest again from its first attempt (SPEC.md §2.7).
     const game = createGame({ deck: buildDeck(), rigLevel: 1 });
+    const pair = (() => {
+      const cards = game.state.cards;
+      for (let i = 0; i < cards.length; i += 1) {
+        for (let j = i + 1; j < cards.length; j += 1) {
+          if (cards[i].fruit === cards[j].fruit) return [cards[i], cards[j]];
+        }
+      }
+      return null;
+    })();
+    game.flip(pair[0].id);
+    game.flip(pair[1].id);
+    expect(game.state.rigged).toBe(true);
+
     game.reset();
-    game.reset();
-    game.reset();
-    expect(game.state.rigLevel).toBe(0);
-    expect(loadState().rigLevel).toBe(0);
+    expect(game.state.matches).toBe(0);
+    expect(game.state.rigged).toBe(false);
   });
 
   it('clears matches and deals a new board', () => {
@@ -117,14 +135,18 @@ describe('reset', () => {
     const game = createGame({ deck: buildDeck(), rigLevel: 5 });
     game.reset();
     expect(stored().muted).toBe(true);
-    expect(stored().rigLevel).toBe(4);
+    expect(stored().rigLevel).toBe(5);
   });
 
-  it('arms the rig immediately once rigLevel reaches 0', () => {
-    const game = createGame({ deck: buildDeck(), rigLevel: 1 });
-    game.reset();
-    expect(game.state.rigLevel).toBe(0);
-    expect(game.state.matches).toBe(0);
-    expect(game.state.rigged).toBe(true);
+  it('still clamps a tampered rigLevel on load', () => {
+    // sanitizeRigLevel stays. Reset no longer writes the threshold, but a
+    // hand-edited storage value is a separate problem and has not gone away.
+    for (const bad of [-3, 999, 'five', null]) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ rigLevel: bad, muted: false }));
+      const level = loadState().rigLevel;
+      expect(Number.isInteger(level), `rigLevel ${bad} resolved to ${level}`).toBe(true);
+      expect(level).toBeGreaterThanOrEqual(0);
+      expect(level).toBeLessThanOrEqual(5);
+    }
   });
 });
