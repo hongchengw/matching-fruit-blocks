@@ -128,13 +128,22 @@ describe('the reroll scope (SPEC.md §2.4)', () => {
     expect(game.state.cards[6].lastShown).toBe('pumpkin');
   });
 
-  it('never lets a rigged attempt match', () => {
+  it('never lets a rigged attempt on a non-pair match', () => {
+    // This asserted that *no* rigged attempt could ever match. SPEC.md §7.4
+    // changed that deliberately: a permanent rate of exactly zero was itself
+    // proof the game was rigged, to anyone counting. What survives, and what
+    // the reroll actually guarantees, is that an attempt on two cards that are
+    // not a genuine pair can never land, because exclusion 1 is never dropped.
     const game = riggedGame();
-    game.flip(0);
-    game.flip(1);
+    const cards = game.state.cards;
+    const first = cards[0];
+    const second = cards.find((card) => card.fruit !== first.fruit);
+
+    game.flip(first.id);
+    game.flip(second.id);
     vi.advanceTimersByTime(DEFAULT_FLIP_MS + 1000);
     expect(game.state.matches).toBe(game.state.rigLevel);
-    expect(game.state.cards[1].state).toBe('down');
+    expect(second.state).toBe('down');
   });
 });
 

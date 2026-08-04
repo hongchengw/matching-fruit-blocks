@@ -23,13 +23,20 @@ async function attempt(page, [a, b]) {
 }
 
 test('the counter crawls past the threshold and stalls short of the end', async ({ page }) => {
+  // 80 attempts rather than the several hundred it takes to actually reach the
+  // floor. At the spec's 1000ms flip-back that is already over a minute of real
+  // waiting, and on headless WebKit the longer version ran past five minutes.
+  // The floor itself, and the full decay to a single outstanding pair, are
+  // asserted deterministically over hundreds of attempts in
+  // tests/unit/asymptotic-wall.test.js. What needs a browser is that the
+  // readout tracks it and that the wall holds in a real playthrough.
   test.setTimeout(300_000);
   await page.goto('/?fm-test=1&fm-rig=0');
 
   const readout = page.locator('[data-readout="matches"]');
   await expect(readout).toHaveText('MATCHES MADE: 0/18');
 
-  for (let i = 0; i < 220; i += 1) {
+  for (let i = 0; i < 80; i += 1) {
     const pair = await findPair(page);
     if (!pair) break;
     await attempt(page, pair);
@@ -39,7 +46,7 @@ test('the counter crawls past the threshold and stalls short of the end', async 
 
   const matches = await page.evaluate(() => window.__fmTest.state().matches);
   // Nonzero: the channel is sealed. Short of 18: the game is still unwinnable.
-  expect(matches, 'not one match landed in 220 rigged attempts').toBeGreaterThan(0);
+  expect(matches, 'not one match landed in 80 rigged attempts').toBeGreaterThan(0);
   expect(matches).toBeLessThan(18);
   await expect(readout).toHaveText(`MATCHES MADE: ${matches}/18`);
 
@@ -89,7 +96,7 @@ test('a granted match is indistinguishable from an honest one', async ({ page })
   // Then a granted one, deep in the rigged phase.
   await page.goto('/?fm-test=1&fm-rig=0');
   let granted = null;
-  for (let i = 0; i < 220 && granted === null; i += 1) {
+  for (let i = 0; i < 120 && granted === null; i += 1) {
     const pair = await findPair(page);
     if (!pair) break;
     await page.evaluate(() => {

@@ -44,6 +44,11 @@
   /* Where the horizon sits, as a share of the viewport height. */
   --fm-horizon: 58%;
 
+  /* Crate shades for slot variation (SPEC.md §3.4). Close together on purpose:
+     loud variation competes with the sprites the player has to read. */
+  --fm-crate-b: #744b29;
+  --fm-crate-c: #613e21;
+
   --fm-bevel-width: 3px;
 
   /*
@@ -488,6 +493,34 @@ button:focus {
 .card__face--front {
   transform: rotateY(180deg);
   background: var(--fm-canvas);
+}
+
+/*
+ * Slot variation on the face-down grid (SPEC.md §3.4).
+ *
+ * Three shades of crate, cycling on a 7-slot stride so the pattern does not
+ * line up with the 6-wide grid and read as stripes. The stall looks stocked
+ * instead of tiled.
+ *
+ * **Bound to the slot, never to the card.** `:nth-child` selects on position in
+ * the grid, and position is the one thing that never moves: only hidden
+ * identities are ever reassigned (§7.3). A back that varied with a card's
+ * identity would let a player follow one card straight through a silent
+ * reshuffle and watch its fruit change, which is §10.3's visual channel
+ * reopened by a decorative change. Do not key this off a data attribute, a
+ * card id, or anything the renderer sets from state.
+ *
+ * The card back sprite itself is untouched and still a single sprite (task 10).
+ * Only the surface behind it varies.
+ */
+.card:nth-child(7n + 2) .card__face--back,
+.card:nth-child(7n + 5) .card__face--back {
+  background: var(--fm-crate-b);
+}
+
+.card:nth-child(7n + 3) .card__face--back,
+.card:nth-child(7n + 6) .card__face--back {
+  background: var(--fm-crate-c);
 }
 
 /* Matched cards read as recessed and desaturated so the live board stays

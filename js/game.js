@@ -9,6 +9,7 @@
  */
 import { FRUITS, CARD_BACK, drawSprite } from './sprites.js';
 import { beepFlip, beepMatch, beepMismatch, isMuted, toggleMute } from './audio.js';
+import { startAmbience, stopAmbience } from './ambience.js';
 
 export { FRUITS };
 
@@ -821,10 +822,29 @@ export function startGame(root, { search = '' } = {}) {
     };
     mute.addEventListener('click', () => {
       toggleMute();
+      // One control for everything audible (SPEC.md §4.4). A separate ambience
+      // toggle would tell the player the ambience is a separate thing.
+      if (isMuted()) stopAmbience();
+      else startAmbience();
       paint();
     });
     paint();
   }
+
+  /*
+   * The bed starts on the first gesture anywhere on the page, never at load:
+   * browsers block an AudioContext created earlier and the console warning
+   * would be a small tell of its own (SPEC.md §4.2).
+   *
+   * Deferred off the gesture's own frame rather than run inside it. Building
+   * the bed fills a multi-second noise buffer, and doing that synchronously on
+   * the click that starts a flip steals frames from the swap deadline, which is
+   * a real-time guarantee (SPEC.md §2.3, §7.1). Measured as a timing difference
+   * between the phases, which is exactly the channel §6.5 requires stay shut.
+   */
+  const wake = () => setTimeout(startAmbience, 1200);
+  document.addEventListener('pointerdown', wake, { once: true });
+  document.addEventListener('keydown', wake, { once: true });
 
   if (testing) exposeTestHook(game);
   return game;

@@ -290,5 +290,11 @@ test('plays through the phase boundary under reduced motion', async ({ page }) =
     await page.waitForTimeout(250);
   }
 
-  expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+  // Since SPEC.md §7.4 an attempt past the threshold may occasionally be
+  // granted, so the assertion is that the wall holds rather than that nothing
+  // moves. The rig staying hidden under reduced motion is what this test is
+  // for, and that is asserted frame by frame above.
+  const matches = await page.evaluate(() => window.__fmTest.state().matches);
+  expect(matches).toBeGreaterThanOrEqual(5);
+  expect(matches, 'the board was completed under reduced motion').toBeLessThan(18);
 });

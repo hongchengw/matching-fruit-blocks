@@ -49,8 +49,14 @@ function riggedGame() {
 /** One complete failed attempt, ending with the board face down again. */
 function failOnce(game) {
   const down = game.state.cards.filter((card) => card.state === 'down');
-  game.flip(down[0].id);
-  game.flip(down[1].id);
+  const first = down[0];
+  // Deliberately not a true pair. Since SPEC.md §7.4 a rigged attempt on a
+  // genuine pair may occasionally be granted, and a granted attempt is a match,
+  // which does not reshuffle anything (§7.3). These tests are about the
+  // reshuffle, so they need an attempt that is certain to fail.
+  const second = down.find((card) => card.fruit !== first.fruit) ?? down[1];
+  game.flip(first.id);
+  game.flip(second.id);
   vi.advanceTimersByTime(DEFAULT_FLIP_MS);
   vi.advanceTimersByTime(1000);
 }
