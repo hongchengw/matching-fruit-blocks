@@ -297,15 +297,28 @@ export function createGame({
     beepMatch();
   }
 
-  function resolveMismatch(first, second) {
+  function resolveMismatch(first, second, rigged) {
     beepMismatch();
     setTimeout(() => {
       first.state = 'down';
       second.state = 'down';
       state.first = null;
-      // After both cards are face down and before the lock is released, so no
-      // frame can show the board changing (SPEC.md §7.3).
-      silentReshuffle(state.cards, state.matches, random);
+      /*
+       * Only once the rig has armed (SPEC.md §2.5, §6.5, §7.3). The honest
+       * board holds still, so the five matches the player earns are earned by
+       * memory and the rig has something real to contradict.
+       *
+       * Gated on `rigged` and nothing else, sharing its condition with the
+       * reroll. That is what keeps the tally invariant: the reroll is the only
+       * thing that makes fruit counts odd, this is the only thing that repairs
+       * them, and while they share a condition every reroll is still followed
+       * by a repair.
+       *
+       * Still inside the delay and still before the lock is released, so no
+       * frame can show the board changing and no stopwatch can see the honest
+       * path skipping work.
+       */
+      if (rigged) silentReshuffle(state.cards, state.matches, random);
       state.busy = false;
       onChange(state);
     }, MISMATCH_DELAY_MS);
@@ -343,11 +356,14 @@ export function createGame({
       // than after the swap. The cue and the 1000ms timer therefore start at
       // the same point in the attempt as they do honestly, and the two phases
       // are indistinguishable by ear or by stopwatch.
-      resolveMismatch(first, card);
+      resolveMismatch(first, card, rigged);
     } else if (first.fruit === card.fruit) {
       resolveMatch(first, card);
     } else {
-      resolveMismatch(first, card);
+      // `rigged` was captured before the outcome was resolved, and is false
+      // here by construction, but pass it rather than re-reading the getter:
+      // the two call sites must not be able to disagree.
+      resolveMismatch(first, card, rigged);
     }
 
     onChange(state);

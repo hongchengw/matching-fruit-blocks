@@ -20,6 +20,38 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 04:01 EDT | fix(game): hold the honest board still until the rig arms (task 24)
+
+`silentReshuffle` is now gated on `rigged`, so card identities only move once the rig has armed.
+The five matches the player earns are earned by memory, which is what §2.2 always assumed and
+what the rig needs in order to have something real to contradict.
+
+This began as a QA report that the board shifted before a single match. It was not a defect. The
+code called the reshuffle unconditionally because §2.5, §6.5 and §7.3 all said "every failed
+attempt", and all three were amended before the one-line gate landed. No test caught it because
+`the honest phase is genuinely winnable` looks up a fresh pair before every attempt, so it passes
+happily on a board reshuffling under it. Winnable and memorable are different properties and only
+the first had ever been tested.
+
+The tally invariant is untouched and was re-proven rather than assumed. §7.2's reroll is the only
+thing that makes fruit counts odd and §7.3's regeneration is the only thing that repairs them;
+both are now gated on the same condition, so every reroll is still followed by a repair and the
+honest phase has nothing to repair. A new unit test runs 40 attempts across the phase boundary
+and checks every count after every one.
+
+Recorded in §2.5 as an accepted cost rather than left to be rediscovered: the reshuffle now
+begins at the exact moment the rig arms, so a player with a good memory could in principle
+correlate the two. The spec says plainly that this is sealed by changing when the rig arms, never
+by taking the player's memory away before it does.
+Covered by 7 e2e and 4 unit tests. Three of the e2e specs passed before the change and were kept
+deliberately: a match still locks, an honest mismatch still takes the full 1000ms, and the rigged
+board still moves. They guard the gate being too broad, which is the opposite failure from the
+rest of the file. `reshuffle-silence.spec.js` moved to a rigged fixture, since its three tests
+are about how the reshuffle behaves and it no longer happens honestly; every assertion there is
+unchanged. One unit test that drove the reshuffle through an honest game was split rather than
+deleted.
+Full suite green: 168 unit, 341 e2e across three engines.
+
 ## 2026-08-04 03:31 EDT | feat(scene): put the stall outdoors under open sky (task 23)
 
 The stall now stands on the outskirts of a farm: a banded blue sky, a flat sun, three
