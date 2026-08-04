@@ -1,7 +1,13 @@
 # Task backlog
 
-22 tasks that build Farmer's Match from an empty repo. Read [`../SPEC.md`](../SPEC.md) first;
-it is the source of truth and every task file references it rather than restating it.
+Tasks 01 through 22 build Farmer's Match from an empty repo. Tasks 23 onward change the built
+game, and come from playing it rather than from the original design. Read
+[`../SPEC.md`](../SPEC.md) first; it is the source of truth and every task file references it
+rather than restating it.
+
+Tasks that change behavior amend `SPEC.md` before they touch code. A task in the second group
+may contradict a task in the first, and where it does, the newer task says so and gives the
+reason.
 
 Execution rules live in [`../AGENTS.md`](../AGENTS.md). The short version: write the failing
 tests first, commit them RED, implement, commit GREEN, log to `changelogs/CHANGELOGS.md`,
@@ -34,6 +40,20 @@ push to `origin/main`.
 | [21](21-persistence-and-curse.md) | Persistence + compounding curse | 16, 18 | Vitest + Playwright |
 | [22](22-final-integration.md) | Responsive, touch, a11y, full E2E | all | Playwright |
 
+## Post-QA changes
+
+Written after the game was played. Each one changes specified behavior, so each amends
+`SPEC.md` first.
+
+| # | Task | Depends on | Test surface |
+|---|---|---|---|
+| [23](23-outdoor-scene.md) | Move the stall outdoors | 11, 12, 22 | Playwright |
+| [24](24-honest-board-stability.md) | The honest board holds still | 16, 20, 22 | Vitest + Playwright |
+| [25](25-non-destructive-reset.md) | Reset stops compounding the curse | 21, 22 | Vitest + Playwright |
+
+23, 24 and 25 are independent of each other and can land in any order. 24 and 25 both soften
+behavior that earlier tasks built deliberately; both say which task they contradict and why.
+
 ## Dependency graph
 
 ```
@@ -60,6 +80,11 @@ push to `origin/main`.
 │   │   └── 20 reshuffle <- 15, 19
 │   └── 21 persistence   <- 16, 18
 └── 22 integration  <- everything
+
+22 integration
+├── 23 outdoor scene        <- also 11, 12
+├── 24 honest board still   <- also 16, 20
+└── 25 non-destructive reset <- also 21
 ```
 
 Acyclic. 01 is the only task with no dependencies and must land first.
@@ -109,14 +134,20 @@ no gaps.
 ```
 package.json                 01
 vitest.config.js             01
-playwright.config.js         01
+playwright.config.js         01, 22
 .gitignore                   01
-index.html                   11, 12, 13, 16, 17, 21
-css/style.css                11, 12, 13, 17, 22
-js/palette.js                02
+index.html                   11, 12, 13, 16, 17, 21, 22, 23
+css/style.css                11, 12, 13, 17, 22, 23
+js/palette.js                02, 23
 js/sprites.js                03, 04, 05, 06, 07, 08, 09, 10, 12
 js/audio.js                  14
-js/game.js                   15, 16, 17, 18, 19, 20, 21
-tests/unit/*.test.js         01, 02, 03, 04-10, 14, 15, 16, 17, 18, 19, 20, 21
-tests/e2e/*.spec.js          01, 03, 04-10, 11, 12, 13, 16, 17, 18, 20, 21, 22
+js/game.js                   15, 16, 17, 18, 19, 20, 21, 24, 25
+scripts/serve.js             01, 22
+SPEC.md                      18, 22, 23, 24, 25
+SECURITY.md                  22, 25
+tests/unit/*.test.js         01, 02, 03, 04-10, 14, 15, 16, 17, 18, 19, 20, 21, 24, 25
+tests/e2e/*.spec.js          01, 03, 04-10, 11, 12, 13, 16, 17, 18, 20, 21, 22, 23, 24, 25
 ```
+
+`SPEC.md` appears here because tasks 18 and 22 onward amend it as part of their own diff, per
+`AGENTS.md`. It is not otherwise a task output.

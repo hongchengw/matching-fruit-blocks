@@ -20,6 +20,39 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 02:39 EDT | docs(tasks): three tasks from the first real QA pass
+
+Added `tasks/23-outdoor-scene.md`, `tasks/24-honest-board-stability.md` and
+`tasks/25-non-destructive-reset.md`, and indexed them in `tasks/README.md` under a new post-QA
+group, since they change the built game rather than build it. Documentation only: no `SPEC.md`
+amendment and no code, both of which belong to the tasks themselves.
+
+Task 24 is worth reading before task 25. QA reported the board shifting before a single match
+had been made, and that turned out not to be a defect: `js/game.js:308` calls `silentReshuffle`
+with no `rigged` guard, which is exactly what §2.5, §6.5 and §7.3 ask for, all three of them
+saying "every failed attempt". The implementation was correct and the specification is what the
+owner disagrees with, so the task amends the spec first. No test caught it because
+`the honest phase is genuinely winnable` re-reads the board with a fresh lookup each attempt, so
+nothing ever asserted the board holds still while honest. That gap is the new task's first test.
+Recorded there that gating the reshuffle opens a small detection channel of its own, since the
+reshuffle would then begin at the same moment the rig arms, and that this was weighed and
+accepted rather than missed.
+
+Task 25 reverses part of task 21 at the owner's direction: Reset stops decrementing `rigLevel`,
+so the honest phase returns on every new round and the game becomes unwinnable per round rather
+than permanently. That contradicts `AGENTS.md`'s standing instruction not to soften the rig, so
+the task file leads with the fact that it is deliberate, lists every spec section it changes
+(§1, §2.7 deleted outright, §2.8, §8, §10.3), and names all nine tests whose behavior is being
+removed, on the grounds that a deliberately removed behavior is the only acceptable reason to
+delete a passing test.
+
+Task 23 moves the stall outdoors under a clear sky, staying in the 16x16 pixel idiom with no
+image assets. It carries the two constraints that will otherwise bite: §3.1 caps the palette at
+roughly 12 earth tones and §2.10 requires warm chrome, and the `chrome is warm-toned` guard at
+`stall-chrome.spec.js:102` fails any hue between 200 and 300 across every `[data-region]`. The
+task requires the exemption be a single named selector rather than a widened hue band, since
+that band is what carries §2.10.
+
 ## 2026-08-04 02:11 EDT | test(integration): the assembled game, verified on three engines (task 22)
 
 Task 22 adds no features and did not need to: nothing in `js/` changed. It drives the finished
