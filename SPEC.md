@@ -88,11 +88,15 @@ Sprites are 16x16 character grids in source. See §3.
 
 *Rationale:* true 8-bit fidelity, full control of the palette, consistent across every OS, and no external assets. Emoji would render differently per platform and would not be pixel art.
 
-### 2.10 Chrome: full stall scene
+### 2.10 Chrome: full stall scene, standing outdoors
 
-Striped awning, wooden crate slats behind the grid, hanging price tags, chunky pixel signboard, wood-grain scoreboard with recessed LCD digits.
+Striped awning, wooden crate slats behind the grid, hanging price tags, chunky pixel signboard, wood-grain scoreboard with recessed LCD digits. The stall stands outdoors on the outskirts of a farm, under open sky (§3.6).
 
 *Rationale:* warmth and craft build trust. The more handmade and friendly the stall feels, the further the fall when the game turns. A cold arcade aesthetic would telegraph malfunction from the first second.
+
+**Scope of the warm-tone rule:** it governs *the stall*. Every surface the player reads, the awning, signboard, scoreboard, grid, base, cards, stays warm. The environment *behind* the stall is exempt, because a sky cannot be warm-hued and still read as sky.
+
+This exemption does not weaken the rationale, it serves it. A stand under a clear midday sky is friendlier and more inviting than the same stand floating on a dark field, and the friendlier the setting, the further the fall. What §2.10 forbids is a *cold* presentation: fluorescent, clinical, arcade. Daylight is the opposite of that. The exemption is exactly one named backdrop layer and must not be widened to any `data-region`.
 
 ### 2.11 Reroll rule: exclude the first card's fruit and the card's last shown fruit
 
@@ -134,6 +138,10 @@ Suggested keys and roles (exact hex values are the implementer's call within the
 
 Constraint: every character used by any sprite must resolve in the palette. Task 02 tests this.
 
+**Environment colors are a separate group and are not sprite colors.** The outdoor backdrop (§3.6) needs sky blue, cloud white, and two field greens, none of which are earth tones and none of which any sprite may use. They live in `css/style.css` as chrome custom properties, alongside the existing stall colors, and never in `js/palette.js`.
+
+The separation is the point. The earth-tone brief governs the 16x16 art, where a limited warm palette is what makes six fruits read as one set. Nothing about the sky behind the stall bears on that, and merging the two groups would let a sprite quietly pick up a sky blue.
+
 ### 3.2 Sprite grid convention
 
 - Every sprite is an array of exactly 16 strings, each exactly 16 characters.
@@ -152,6 +160,8 @@ Top to bottom:
 4. **Grid area**: 6x6 cards on a crate-slat background.
 5. **Base**: wooden shelf with the Reset button and hanging price tags.
 
+The five regions sit in front of the outdoor backdrop specified in §3.6.
+
 ### 3.4 Card geometry
 
 - Square, `aspect-ratio: 1`.
@@ -161,6 +171,23 @@ Top to bottom:
 ### 3.5 Typography
 
 A pixel webfont only if it can be embedded locally or base64-inlined. **No CDN requests, no external font hosts.** Fallback is a `monospace` stack with generous `letter-spacing` and `text-transform: uppercase`. Task 11 tests that the page issues no font network requests.
+
+### 3.6 Outdoor backdrop
+
+The stall stands outdoors. Behind it, filling the viewport, top to bottom:
+
+1. **Sky**: a clear blue field over the upper portion, lightening toward the horizon.
+2. **Sun**: a single flat disc. No gradient, no glow, no rays.
+3. **Clouds**: a few chunky, flat-edged pixel clouds. Drift is optional, and stilled entirely under `prefers-reduced-motion` (§9).
+4. **Fields**: a green band below the horizon, banded into two or three tones so it reads as crop rows receding toward it.
+
+Constraints:
+
+- **One backdrop layer, one exemption.** The backdrop is a single element and is **not** a `data-region`, so §2.10's warm-tone rule keeps applying to every region with no special case and no widened tolerance.
+- **Pixel idiom.** Flat fills and hard edges. No soft gradients across large areas, no blur, no drop shadows. §2.9 and §3.2 are unchanged: the backdrop must look drawn by the same hand as the sprites.
+- **No image assets, no network requests** (§11, §11.1). Built from CSS gradients and masks, the way the awning's scallops already are.
+- **The backdrop never competes with the cards.** Detail and contrast stay low behind the grid. The player has to read 36 small sprites, and that is the only thing on screen that matters.
+- The stall keeps a defined edge against the backdrop, so it still reads as an object standing in a place rather than a panel pasted on a picture.
 
 ---
 
