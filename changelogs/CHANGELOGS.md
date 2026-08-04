@@ -20,6 +20,105 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 06:43 EDT | feat(scene): crate variation and an outdoor sound bed (tasks 29, 30)
+
+Three crate shades cycle across the face-down grid on a 7-slot stride, chosen so the pattern does
+not line up with the 6-wide grid and read as stripes. The stall looks stocked rather than tiled.
+
+**Bound to the grid slot, never to the card**, via `:nth-child`. This is the whole risk in the
+task: a back that varied with a card's identity would let a player follow one card straight
+through a silent reshuffle and watch its fruit change, which is §10.3's visual channel reopened
+at its widest by a purely decorative change. Position is the one thing that never moves, since
+only hidden identities are ever reassigned. A test churns the board until identities have
+provably moved, then requires every slot to look exactly as it did.
+
+Added `js/ambience.js`: a wind bed with the occasional bird, synthesized, no assets and no
+requests. Deliberately a separate module from `js/audio.js`, whose structural isolation from game
+state is one of the cleanest safety properties in this codebase and is easier to trust while the
+file stays small enough to read at once. It carries its own copy of the source-level guard, which
+promptly caught two words in this file's own prose, exactly as task 14's did.
+
+The bed is deferred off the gesture that starts it rather than built inside it. Filling a
+multi-second noise buffer synchronously on the click that begins a flip steals frames from the
+swap deadline, which is a real-time guarantee (§2.3, §7.1), and it surfaced as a measurable
+timing difference between the phases, which is precisely the channel §6.5 requires stay shut.
+§4.3's cue parity is now asserted with the bed playing, which is the condition that actually
+ships.
+
+## 2026-08-04 06:41 EDT | feat(rig): manufacture the near miss (task 28)
+
+The rigged reroll now prefers a fruit the player has recently seen elsewhere, ahead of the
+existing in-play preference. Most failures hand them a card whose twin they are certain they can
+find, so they chase it, and a player chasing a remembered card writes their own explanation for
+every failure: not that the game is rigged, but that they were sure it was that one.
+
+Exclusion 1 is untouched and was proven adversarially rather than assumed: a reveal history
+stuffed with nothing but the forbidden fruit, three thousand draws, never returned it. Reuses
+task 27's recency window rather than inventing a second notion of "recently", and fires 75 percent
+of the time rather than always, because baiting every single failure is a pattern and a pattern is
+a tell.
+
+Two e2e tests were written degenerately and fixed rather than accommodated. They picked the same
+first card every attempt, which collapses the player's recent history to a single card holding
+the one fruit exclusion 1 forbids, so there was never anything left to bait with and the measured
+rate was 0 of 23. That is a degenerate player, not a degenerate rig; with rotated picks it is 24
+of 31, matching the configured rate. A second test was wrong in premise: the bait puts the
+dangled fruit genuinely on the board, so chasing it is an attempt on a true pair, which §7.4
+denies at the rigged rate rather than absolutely. An absolute never would have been exactly the
+statistical tell §7.4 exists to remove.
+
+## 2026-08-04 06:39 EDT | feat(reshuffle): rot the board from the edges (task 27)
+
+Only cards the player has not revealed within the last few attempts are eligible to be
+reshuffled. Fresh memories stay true and older ones rot, which is what an overloaded memory feels
+like rather than a board that lies about everything equally.
+
+This also seals the tell task 24 knowingly created and recorded. When the reshuffle moved
+everything it began at the instant the rig armed, so recall and matches stopped working together,
+and two coincident signals are easy to correlate. Most of the board is already cold at the
+boundary now, so the onset is invisible, and a test asserts the first rigged failure is not an
+outlier.
+
+The work is in `buildComplementMultiset`. Regenerating the whole board was free because the
+regenerator owned every slot; it now has to match, per fruit, the parity of whatever the warm
+cards are holding, or the totals come out odd and the tally channel opens. A solution always
+exists when there are at least as many cold slots as odd-held fruits, and that is guaranteed
+rather than lucky: the unmatched total is even, so the two always share a parity. Where the warm
+set is too large its stalest members are released until it fits, because the tally invariant is
+not negotiable and the recency window is.
+
+`lastSeenAt` is a new field, separate from `lastShown`: one records when the player saw a card,
+the other what they saw, and overloading either would couple two unrelated rules. `SPEC.md` §5
+and the deck shape test are updated with it.
+The first draft of these tests passed against an implementation that moved everything, because it
+read `card.fruit` after the reshuffle had already run and was comparing the mutation to itself.
+
+## 2026-08-04 06:37 EDT | feat(rig): seal the statistical channel (task 26)
+
+A rigged attempt on a genuine pair may now stand as a match: less and less often as the board
+empties, and never at all for the last pair. The counter crawls toward 17 of 18 and stalls there
+with two cards still sitting on the board.
+
+**This closes a channel §10.3 never listed.** The rigged match rate was exactly zero,
+permanently, and zero by construction, since §7.2's first exclusion can never be dropped. A player
+who misses twenty attempts they were confident about has not experienced memory failure, because
+real memory failure is noisy and noise produces occasional hits. A flawless zero is a signature,
+and §1 says certainty is a failure of the design. Every other channel here was sealed against a
+player who is watching; this one was open to a player merely counting, which is easier.
+
+Requiring a genuine pair is what keeps the tally invariant for free. Granting on cards that are
+not a pair would rewrite one fruit and lock it, leaving another odd, with no reshuffle following a
+match to repair it. Locking two of the same fruit preserves every count by construction.
+
+A granted match goes through `resolveMatch` on the same path an honest one takes, with no reroll
+at all, so the cue, the timing and the lock are identical. A mercy match that felt different would
+be a worse tell than the one it fixes.
+
+§2.6 is amended with the owner's sign-off: the counter no longer freezes. A counter stalled at 17
+of 18 aims §2.6's own stated instrument far more precisely than one frozen at 5 of 18, and the
+stall still needs no special-case code. Six tests asserted the old freeze or the old absolute and
+were rewritten rather than deleted, since the behavior was replaced rather than removed.
+
 ## 2026-08-04 04:59 EDT | docs(tasks): five tasks from the second QA pass
 
 Added tasks 26 through 30 and indexed them in `tasks/README.md` under a second post-QA group.
