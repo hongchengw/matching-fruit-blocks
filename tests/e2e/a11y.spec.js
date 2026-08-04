@@ -5,35 +5,35 @@ import { test, expect } from '@playwright/test';
 
 const TEST_PAGE = '/?fm-test=1';
 
-/**
- * WCAG contrast helpers, installed on `window` rather than declared inline.
- * An `eval`ed `const` stays inside the eval's own scope under module strictness
- * and is not visible to the rest of the evaluated function.
+/*
+ * The contrast math runs here, in the test process, not in the page.
+ *
+ * It used to be a source string `eval`ed inside `page.evaluate`, because an
+ * evaluated function is serialized and sent to the page, where nothing from
+ * this module exists. But SPEC.md §11.1 puts a Content-Security-Policy on the
+ * page, and `eval` is precisely what that policy refuses, so a test that needs
+ * it is testing a page that does not ship.
+ *
+ * It does not need to be there at all. The page's job is to report the colors
+ * it computed; comparing them is arithmetic. Only `backdrop` below has to run
+ * in the page, since it walks the DOM.
  */
-const CONTRAST_HELPERS = `
-  const channel = (v) => {
-    const s = v / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  };
-  const luminance = (rgb) => {
-    const [r, g, b] = rgb.match(/[\\d.]+/g).map(Number);
-    return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-  };
-  window.__ratio = (a, b) => {
-    const [hi, lo] = luminance(a) > luminance(b) ? [a, b] : [b, a];
-    return (luminance(hi) + 0.05) / (luminance(lo) + 0.05);
-  };
-  /** Walk up for the nearest element that actually paints a background. */
-  window.__backdrop = (el) => {
-    let node = el;
-    while (node && node !== document.documentElement) {
-      const bg = getComputedStyle(node).backgroundColor;
-      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
-      node = node.parentElement;
-    }
-    return getComputedStyle(document.body).backgroundColor;
-  };
-`;
+
+const channel = (v) => {
+  const s = v / 255;
+  return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+};
+
+const luminance = (rgb) => {
+  const [r, g, b] = rgb.match(/[\d.]+/g).map(Number);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+};
+
+/** WCAG contrast ratio between two computed color strings. */
+const ratio = (a, b) => {
+  const [hi, lo] = luminance(a) > luminance(b) ? [a, b] : [b, a];
+  return (luminance(hi) + 0.05) / (luminance(lo) + 0.05);
+};
 
 const findPair = (page) =>
   page.evaluate(() => {
@@ -136,8 +136,18 @@ test('is fully keyboard playable', async ({ page }) => {
 
 test('always shows where the focus is', async ({ page }) => {
   await page.goto('/');
-  const results = await page.evaluate((helpers) => {
-    eval(helpers);
+  const measured = await page.evaluate(() => {
+    /** Nearest ancestor that actually paints a background. */
+    const backdrop = (el) => {
+      let node = el;
+      while (node && node !== document.documentElement) {
+        const bg = getComputedStyle(node).backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+        node = node.parentElement;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    };
+
     const out = [];
     for (const el of document.querySelectorAll('button')) {
       el.focus();
@@ -146,11 +156,13 @@ test('always shows where the focus is', async ({ page }) => {
         tag: el.className,
         style: cs.outlineStyle,
         width: parseFloat(cs.outlineWidth),
-        contrast: window.__ratio(cs.outlineColor, window.__backdrop(el)),
+        outline: cs.outlineColor,
+        behind: backdrop(el),
       });
     }
     return out;
-  }, CONTRAST_HELPERS);
+  });
+  const results = measured.map((m) => ({ ...m, contrast: ratio(m.outline, m.behind) }));
 
   expect(results.length).toBeGreaterThan(36);
   for (const result of results) {
@@ -163,8 +175,18 @@ test('always shows where the focus is', async ({ page }) => {
 
 test('meets WCAG AA text contrast', async ({ page }) => {
   await page.goto('/');
-  const measured = await page.evaluate((helpers) => {
-    eval(helpers);
+  const sampled = await page.evaluate(() => {
+    /** Nearest ancestor that actually paints a background. */
+    const backdrop = (el) => {
+      let node = el;
+      while (node && node !== document.documentElement) {
+        const bg = getComputedStyle(node).backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+        node = node.parentElement;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    };
+
     const targets = [
       ['scoreboard digits', '[data-readout="matches"]'],
       ['score digits', '[data-readout="score"]'],
@@ -180,10 +202,12 @@ test('meets WCAG AA text contrast', async ({ page }) => {
         name,
         size: parseFloat(cs.fontSize),
         bold: Number(cs.fontWeight) >= 700,
-        contrast: window.__ratio(cs.color, window.__backdrop(el)),
+        ink: cs.color,
+        behind: backdrop(el),
       };
     });
-  }, CONTRAST_HELPERS);
+  });
+  const measured = sampled.map((s) => ({ ...s, contrast: ratio(s.ink, s.behind) }));
 
   for (const item of measured) {
     // AA: 3:1 for large text (18.66px bold or 24px), 4.5:1 otherwise.
