@@ -174,7 +174,12 @@ describe('the reroll in the loop', () => {
     for (let attempt = 0; attempt < 50; attempt += 1) {
       const down = game.state.cards.filter((c) => c.state === 'down');
       const first = down[0];
-      const second = down.find((c) => c.id !== first.id);
+      // Deliberately not a true pair. This test is about what the reroll does,
+      // and since SPEC.md §7.4 a rigged attempt on a *genuine* pair may
+      // occasionally be granted, in which case no reroll happens at all. The
+      // grant is covered by tests/unit/asymptotic-wall.test.js; picking a
+      // non-pair keeps this test pointed at the reroll it was written for.
+      const second = down.find((c) => c.id !== first.id && c.fruit !== first.fruit);
       const before = second.lastShown;
 
       game.flip(first.id);

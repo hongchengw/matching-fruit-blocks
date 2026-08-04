@@ -64,15 +64,26 @@ test.describe('the full playthrough', () => {
     expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(10);
     expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(true);
 
-    // Twenty attempts on cards the board itself says are true pairs.
+    // Twenty attempts on cards the board itself says are true pairs. Since
+    // SPEC.md §7.4 a few of these may be granted, so the assertion is no longer
+    // that nothing moves. What must hold is that the wall holds: the player
+    // cannot clear the board, and cards are always left on it.
     for (let i = 0; i < 20; i += 1) {
       const pair = await findPair(page);
       expect(pair, `attempt ${i + 1} should have a visible pair`).not.toBeNull();
       await attempt(page, pair);
-      expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+      expect(
+        await page.evaluate(() => window.__fmTest.state().matches),
+        `the board was completed on attempt ${i + 1}`,
+      ).toBeLessThan(18);
     }
 
-    expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(10);
+    const matches = await page.evaluate(() => window.__fmTest.state().matches);
+    expect(matches).toBeLessThan(18);
+    expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(matches * 2);
+    expect(
+      await page.locator('[data-card]:not([data-state="locked"])').count(),
+    ).toBeGreaterThanOrEqual(2);
   });
 
   test('all four invariants hold across the playthrough', async ({ page }) => {
@@ -268,16 +279,26 @@ test.describe('the full playthrough', () => {
     expect(await page.locator('[data-card]').count()).toBe(36);
   });
 
-  test('the counter stays frozen throughout', async ({ page }) => {
+  test('the counter only ever crawls, and never completes', async ({ page }) => {
+    // Was `the counter stays frozen throughout`, pinned at 5/18. SPEC.md §2.6
+    // no longer freezes it: a rate of exactly zero was itself the proof §7.4
+    // exists to remove. The readout still tracks state exactly, still never
+    // goes backwards, and still never reaches 18.
     test.setTimeout(120_000);
     await page.goto(TEST_PAGE);
     for (let i = 0; i < 5; i += 1) await attempt(page, await findPair(page));
 
     const readout = page.locator('[data-readout="matches"]');
     await expect(readout).toHaveText('MATCHES MADE: 5/18');
+
+    let previous = 5;
     for (let i = 0; i < 12; i += 1) {
       await attempt(page, await findPair(page));
-      await expect(readout).toHaveText('MATCHES MADE: 5/18');
+      const matches = await page.evaluate(() => window.__fmTest.state().matches);
+      expect(matches, 'the counter went backwards').toBeGreaterThanOrEqual(previous);
+      expect(matches, 'the board was completed').toBeLessThan(18);
+      await expect(readout).toHaveText(`MATCHES MADE: ${matches}/18`);
+      previous = matches;
     }
   });
 
@@ -308,9 +329,11 @@ test.describe('the full playthrough', () => {
       expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
       expect(await page.evaluate(() => window.__fmTest.state().rigged)).toBe(true);
 
-      // The wall, in every round.
+      // The wall, in every round. Since SPEC.md §7.4 an attempt past the
+      // threshold may occasionally be granted, so what is asserted is that the
+      // round cannot be completed, not that nothing moves.
       await attempt(page, await findPair(page));
-      expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
+      expect(await page.evaluate(() => window.__fmTest.state().matches)).toBeLessThan(18);
 
       await page.locator('[data-control="reset"]').click();
     }

@@ -54,22 +54,35 @@ test('reads 5/18 once the rig arms', async ({ page }) => {
   await expect(page.locator('[data-readout="score"]')).toHaveText('SCORE: 5');
 });
 
-test('never advances past the rig threshold', async ({ page }) => {
-  // The user-facing form of the frozen-counter decision: 13 matches dangling,
-  // permanently visible, forever out of reach.
+test('crawls after the rig arms and never completes', async ({ page }) => {
+  // The user-facing form of SPEC.md §7.4. This used to assert the readout was
+  // pinned at 5/18 forever, which was the old §2.6. Task 26 replaced the freeze
+  // with a crawl, because a match rate of exactly zero was itself proof the
+  // game was rigged. The property that replaced it: the counter may rise, it
+  // never falls, and it never reaches 18.
   //
   // 25 attempts at the spec's 1000ms flip-back is over 30 seconds of real
   // waiting, so this test buys the time rather than shortening the run.
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
   await page.goto(TEST_PAGE);
   for (let i = 0; i < 5; i += 1) expect(await playPair(page)).toBe(true);
 
   const readout = page.locator('[data-readout="matches"]');
+  let previous = 5;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     await playPair(page);
-    await expect(readout).toHaveText('MATCHES MADE: 5/18');
+    const matches = await page.evaluate(() => window.__fmTest.state().matches);
+    expect(matches, 'the counter went backwards').toBeGreaterThanOrEqual(previous);
+    expect(matches, 'the board was completed').toBeLessThan(18);
+    await expect(readout).toHaveText(`MATCHES MADE: ${matches}/18`);
+    previous = matches;
   }
 
-  expect(await page.evaluate(() => window.__fmTest.state().matches)).toBe(5);
-  expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(10);
+  const matches = await page.evaluate(() => window.__fmTest.state().matches);
+  expect(matches).toBeLessThan(18);
+  expect(await page.locator('[data-card][data-state="locked"]').count()).toBe(matches * 2);
+  // Cards are always left on the board, which is the point of the wall.
+  expect(await page.locator('[data-card]:not([data-state="locked"])').count()).toBeGreaterThanOrEqual(
+    2,
+  );
 });

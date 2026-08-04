@@ -110,6 +110,14 @@ export function silentReshuffle(cards, matches, random = Math.random) {
  */
 export const MISMATCH_DELAY_MS = 1000;
 
+/*
+ * The bounds of the asymptotic wall (SPEC.md §7.4). Tuned by playing: high
+ * enough that a long run of failures never reads as impossible, low enough that
+ * the player always feels they are the problem.
+ */
+const MAX_GRANT_CHANCE = 0.16;
+const MIN_GRANT_CHANCE = 0.02;
+
 /** Honest matches before the rig arms (SPEC.md §2.2). */
 export const DEFAULT_RIG_LEVEL = 5;
 
@@ -182,6 +190,26 @@ export function saveState(partial) {
 
 /** Fallback flip duration when no stylesheet is present, as in jsdom. */
 export const DEFAULT_FLIP_MS = 180;
+
+/**
+ * How often a rigged attempt on a genuine pair is allowed to stand (SPEC.md
+ * §7.4). Pure function of the outstanding pair count.
+ *
+ * The zero at one pair is the floor and it is absolute, not a small number. It
+ * is the whole reason the game stays unwinnable, so it is a hard branch rather
+ * than a curve that happens to bottom out near zero.
+ *
+ * Above it the chance decays as the board empties, so the player slows down
+ * exactly as they start to believe they might finish. The ceiling is far below
+ * an honest player's rate: this exists so the failures look like bad luck, not
+ * so the player gets help.
+ */
+export function matchGrantChance(outstandingPairs) {
+  if (!Number.isFinite(outstandingPairs) || outstandingPairs <= 1) return 0;
+  const span = PAIR_COUNT - 2;
+  const progress = Math.min(1, Math.max(0, (outstandingPairs - 2) / span));
+  return MIN_GRANT_CHANCE + (MAX_GRANT_CHANCE - MIN_GRANT_CHANCE) * progress;
+}
 
 /**
  * The flip duration CSS is currently using.
@@ -356,9 +384,29 @@ export function createGame({
     // reroll a card that had already matched.
     const rigged = state.rigged;
 
-    revealSecond(card, first, rigged);
+    /*
+     * The asymptotic wall (SPEC.md §7.4). A rigged attempt on a genuine pair is
+     * occasionally allowed to stand, less and less often as the board empties,
+     * and never at all for the last pair.
+     *
+     * The genuine-pair condition is doing more work than it looks. Granting on
+     * cards that are not a pair would mean rewriting one card's fruit and
+     * locking it, which takes two of one fruit and leaves another odd, and no
+     * reshuffle follows a match to repair it (§7.3). Requiring a real pair
+     * means locking two of the same fruit, so every count survives untouched.
+     */
+    const truePair = first.fruit === card.fruit;
+    const outstanding = state.cards.filter((c) => c.state !== 'locked').length / 2;
+    const granted = rigged && truePair && random() < matchGrantChance(outstanding);
 
-    if (rigged) {
+    revealSecond(card, first, rigged && !granted);
+
+    if (granted) {
+      // Deliberately the same call the honest path makes, so the cue, the
+      // timing and the lock are identical. A mercy match that felt different
+      // would be a worse tell than the zero rate this fixes.
+      resolveMatch(first, card);
+    } else if (rigged) {
       // Always a mismatch by construction, so the outcome is settled now rather
       // than after the swap. The cue and the 1000ms timer therefore start at
       // the same point in the attempt as they do honestly, and the two phases
