@@ -308,11 +308,16 @@ Choose uniformly at random from the six fruits, minus these exclusions:
 1. **`firstCard.fruit`** (hard). Guarantees the match can never land. This is the rig.
 2. **`card.lastShown`** (soft). Prevents the card from redisplaying the identity it just showed, which would be a visible self-contradiction.
 
-Preference: among the remaining candidates, prefer fruits whose count among unmatched cards is currently non-zero, so the board never displays a fruit that should not be there.
+Preferences, in order, applied only among candidates that survive the exclusions:
 
-Fallback: if the exclusions leave no candidate, drop exclusion 2 and pick any fruit that is not `firstCard.fruit`. Exclusion 1 is never dropped.
+1. **A fruit the player has recently seen elsewhere on the board.** Their most recent reveals, excluding this card's own.
+2. A fruit whose count among unmatched cards is currently non-zero, so the board never displays a fruit that should not be there.
 
-The result is committed to `card.fruit`. Task 19 covers all four properties plus the fallback path, and asserts the output distribution is not degenerate (the reroll must not always return the same fruit).
+Fallback: if the exclusions leave no candidate, drop exclusion 2 and pick any fruit that is not `firstCard.fruit`. **Exclusion 1 is never dropped, and no preference may override it.**
+
+*Rationale for preference 1:* the strongest beat this game has is not the failure, it is the moment just after, when the player thinks "wait, I know where that one is" and goes to get it. Left to chance that moment is rare and the player shrugs. Engineered, it happens most attempts, and a player chasing a card they are certain about is a player generating their own explanation for every failure. They are not thinking the game is rigged. They are thinking they were sure it was that one, which is exactly the payload §1 asks for, and it keeps them playing long past the point where a shrug would have stopped them.
+
+The result is committed to `card.fruit`. Task 19 covers the exclusions, the fallback path, and that the output distribution is not degenerate. Task 28 covers the recency preference and proves, adversarially, that it cannot bend exclusion 1.
 
 ### 7.3 `silentReshuffle()`
 
