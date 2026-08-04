@@ -342,3 +342,29 @@ These are not optional and must not be weakened:
 - No build step, bundler, or transpiler for the shipped app.
 - No framework. Vanilla HTML, CSS, and ES modules.
 - No escape hatch from the curse.
+
+### 11.1 The no-network rule is enforced, not merely observed
+
+"No network calls of any kind at runtime" is a property of the shipped page, not a promise the
+code makes about itself. It is enforced by a Content-Security-Policy, so a future edit that
+adds a `fetch`, a CDN font, or a tracking pixel fails in the browser rather than passing review.
+
+The policy is:
+
+```
+default-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+```
+
+- `connect-src 'none'` is the operative one: `fetch`, `XMLHttpRequest`, `WebSocket`, and
+  `sendBeacon` are all refused outright. There is no analytics call this page could make.
+- `default-src 'self'` confines scripts, styles, and fonts to the app's own origin, which is
+  the same rule §11 already states about CDN fonts.
+- `base-uri` and `object-src` close the two injection routes that `default-src` does not cover.
+
+It ships as a `<meta http-equiv>` in `index.html`, so it holds however the app is served,
+including from `file://` or any static host that sends no headers of its own.
+`frame-ancestors` is ignored in a meta tag by specification, so it is carried additionally as a
+real response header by `scripts/serve.js`, and any production host should send the same.
+
+**This constrains the tests too.** A test that reaches into the page with `eval` is testing a
+page that does not exist. Helpers belong inside the evaluated function.
