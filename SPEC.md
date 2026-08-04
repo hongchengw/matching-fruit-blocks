@@ -58,11 +58,17 @@ The first card of an attempt always reveals its true identity and holds that ide
 
 *Rationale:* leaves the player one piece of stable ground. If everything were random the board would read as obviously arbitrary; because the first card is honest, the player has something to reason from, and reasoning that always fails feels like personal failure rather than system malfunction.
 
-### 2.5 Post-failure: silent, un-animated reshuffle
+### 2.5 Post-failure: silent, un-animated reshuffle, **once the rig has armed**
 
-After every failed attempt, once both cards are face-down again, all unmatched card identities are reshuffled. No animation, no sound, no visual change of any kind.
+After every failed attempt **in the rigged phase**, once both cards are face-down again, all unmatched card identities are reshuffled. No animation, no sound, no visual change of any kind.
+
+**During the honest phase the board does not move.** A card that showed an apple still holds that apple until it is matched.
 
 *Rationale:* destroys the player's mental map without ever admitting it happened. An animated shuffle would be honest and would tell the player memory is futile. Silence keeps them trying.
+
+*Rationale for the gate:* §2.2 rests on the player building a working model of a fair game and attributing their early success to skill. A board that reshuffles under them was never fair in the way that argument needs, because memory could not have been what earned those five matches. Making the honest phase genuinely memorable is what gives the rig something real to contradict.
+
+**Known cost, accepted deliberately.** The reshuffle now begins at the exact moment the rig arms, so its onset is correlated with the wall rather than being present from the first attempt. A player with a good memory could in principle notice that their recall stopped working precisely when their matches stopped landing. This was weighed and accepted. **Do not "seal" it by reverting the gate.** If it needs sealing, it is sealed by changing *when the rig arms*, never by taking the player's memory away before it does.
 
 ### 2.6 Scoreboard: freezes at `rigLevel`/18 forever
 
@@ -247,9 +253,9 @@ Applies whenever `rigged === false`.
 2. **First card of an attempt** (`first === null`): reveal its true `fruit`, set `state: 'up'`, set `lastShown`, store its id in `first`, play `beepFlip()`.
 3. **Second card**: set `busy = true`, reveal its true `fruit`, set `lastShown`, play `beepFlip()`, then compare.
 4. **Match**: set both cards to `locked`, increment `matches`, play `beepMatch()`, clear `first`, release `busy`.
-5. **Mismatch**: play `beepMismatch()`, wait **1000ms**, flip both cards back to `down`, clear `first`, then run `silentReshuffle()` (§7.3), then release `busy`.
+5. **Mismatch**: play `beepMismatch()`, wait **1000ms**, flip both cards back to `down`, clear `first`, then release `busy`. **No reshuffle**: the honest board holds still (§2.5).
 
-The 1000ms delay and the `busy` lock are identical in both phases. Nothing about the timing may reveal which phase is active.
+The 1000ms delay and the `busy` lock are identical in both phases. Nothing about the timing may reveal which phase is active. In particular, skipping the reshuffle must not make the honest path measurably faster; the work happens inside the delay with the lock already held, so there is nothing for a stopwatch to see.
 
 ---
 
@@ -284,9 +290,11 @@ The result is committed to `card.fruit`. Task 19 covers all four properties plus
 
 ### 7.3 `silentReshuffle()`
 
-Runs after every failed attempt, once both cards are face-down again.
+Runs after every failed attempt **in this phase**, once both cards are face-down again. It does not run at all while `rigged` is false (§2.5, §6.5).
 
 **No animation. No sound. No visual change.** Only hidden identities change.
+
+The gate is on `rigged` and on nothing else: not on `matches`, not on a separate flag. It shares its condition with §7.2's reroll, which is what keeps the tally invariant intact. The reroll is the only thing that makes fruit counts odd, and the reshuffle is the only thing that repairs them, so gating both on the same condition means every reroll is still followed by a repair, and during the honest phase there is nothing to repair.
 
 Algorithm:
 
