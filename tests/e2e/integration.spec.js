@@ -103,13 +103,23 @@ test.describe('the full playthrough', () => {
           // between them is exact. Measuring either one against currentTime
           // instead would fold in however long the call took and make two
           // identical cues look like 160ms and 159ms.
+          //
+          // Rounded to the microsecond because the caller schedules `at` and
+          // `at + seconds`, and subtracting those two doubles back apart does
+          // not return `seconds`: the rounding error depends on how large the
+          // clock happens to be, so one 160ms buzz records as
+          // 0.15999999999999992 and the next as 0.16000000000000014. That is
+          // the recorder, not the cue. A microsecond is still four orders of
+          // magnitude finer than anything a player could hear, so a genuine
+          // divergence between two cues has nowhere to hide.
           osc.start = (t) => {
             entry.type = osc.type;
             entry.startAt = t;
             return start(t);
           };
           osc.stop = (t) => {
-            entry.duration = entry.startAt === null ? null : t - entry.startAt;
+            entry.duration =
+              entry.startAt === null ? null : Math.round((t - entry.startAt) * 1e6) / 1e6;
             return stop(t);
           };
           return osc;
@@ -167,7 +177,6 @@ test.describe('the full playthrough', () => {
           const element = document.querySelector(`[data-card="${b}"]`);
           const inner = element.querySelector('.card__inner');
           const canvas = element.querySelector('.card__face--front canvas');
-          const before = window.__fmTest.cards().find((c) => c.id === b).fruit;
 
           const frames = [];
           let running = true;
@@ -196,7 +205,6 @@ test.describe('the full playthrough', () => {
           return {
             readableAndWrong: frames.filter((f) => f.cos < -0.35 && f.sig !== final).length,
             readable: frames.filter((f) => f.cos < -0.35).length,
-            matched: committed === before && false,
           };
         },
         { a, b },
@@ -224,7 +232,10 @@ test.describe('the full playthrough', () => {
     // Audio invariant: the honest buzz and every rigged buzz are one shape.
     if (await page.evaluate(() => Boolean(window.AudioContext ?? window.webkitAudioContext))) {
       expect(mismatchCues.length).toBeGreaterThan(5);
-      expect(new Set(mismatchCues).size).toBe(1);
+      const shapes = [...new Set(mismatchCues)];
+      // Named so a failure reports which shapes diverged rather than just a
+      // count, since the whole point is what the difference was.
+      expect(shapes, `mismatch cue shapes: ${shapes.join(' | ')}`).toHaveLength(1);
     }
 
     // Persistence invariant.

@@ -155,10 +155,20 @@ test('flip is linear so the midpoint is edge-on', async ({ page }) => {
 
 test('a real flip passes through the edge-on region', async ({ page }) => {
   await page.goto('/');
-  const minCos = await page.evaluate(async () => {
+  const cosines = await page.evaluate(async () => {
+    // Stretch the flip for the duration of the measurement. Playwright's
+    // headless WebKit delivers requestAnimationFrame roughly every 130ms here,
+    // so a 180ms flip is one or two samples wide on that engine and cannot be
+    // observed at all. Nothing about the mechanism changes: the same CSS
+    // transition on the same property with the same linear curve, just slow
+    // enough for a slow sampler to resolve. The shipped 180ms is asserted by
+    // `flip duration is 180ms`; this test is about the shape of the rotation,
+    // not its length.
+    document.documentElement.style.setProperty('--fm-flip-ms', '2000');
+
     const card = document.querySelector('[data-card]');
     const inner = card.querySelector('.card__inner');
-    let min = 1;
+    const samples = [];
     let done = false;
     // Read the rotation out of the matrix rather than measuring the face's
     // projected width. WebKit does not foreshorten a preserve-3d child's
@@ -167,19 +177,44 @@ test('a real flip passes through the edge-on region', async ({ page }) => {
     const sample = () => {
       const m = getComputedStyle(inner).transform;
       if (m.startsWith('matrix')) {
-        min = Math.min(min, Math.abs(Number(m.slice(m.indexOf('(') + 1).split(',')[0])));
+        samples.push(Number(m.slice(m.indexOf('(') + 1).split(',')[0]));
       }
       if (!done) requestAnimationFrame(sample);
     };
     requestAnimationFrame(sample);
     card.dataset.state = 'up';
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 2400));
     done = true;
-    return min;
+    return samples;
   });
-  // cos(angle) near zero is the card edge-on. Frame sampling cannot guarantee
-  // landing on 90 degrees exactly, but it must be observed passing close.
-  expect(minCos).toBeLessThan(0.35);
+
+  // The matrix's first component is cos(angle), so it is +1 face-on, 0 edge-on,
+  // and -1 turned all the way round.
+  //
+  // This used to assert that some sampled frame landed within 0.35 of zero,
+  // which asks the sampler to catch a window about 20ms wide in a 180ms flip.
+  // At 60fps that is a single frame of margin, so one dropped frame failed the
+  // test on Firefox and WebKit while the flip itself was perfectly correct.
+  //
+  // Proximity was only ever a proxy for the real property: that the rotation
+  // *passes through* 90 degrees. Assert that directly. A positive sample
+  // followed by a negative one means the cosine changed sign, and since the
+  // sibling test pins the timing function to linear, the angle is continuous in
+  // time and must therefore have been exactly 90 degrees in between. That is
+  // the exact statement rather than an approximation of it, and where the
+  // frames happen to land cannot affect it.
+  const firstNegative = cosines.findIndex((cos) => cos < 0);
+  expect(firstNegative, 'the flip never turned past edge-on').toBeGreaterThan(-1);
+  expect(
+    cosines.slice(0, firstNegative).some((cos) => cos > 0),
+    'no frame was observed before the card turned past edge-on',
+  ).toBe(true);
+
+  // And it got there by rotating rather than jumping: intermediate angles were
+  // actually on screen. Without this a card that snapped from 0 to 180 in one
+  // frame would satisfy the sign change above.
+  const intermediate = cosines.filter((cos) => Math.abs(cos) < 0.95).length;
+  expect(intermediate, `only ${intermediate} intermediate frames`).toBeGreaterThan(3);
 });
 
 test('locked cards use the recessed bevel', async ({ page }) => {
