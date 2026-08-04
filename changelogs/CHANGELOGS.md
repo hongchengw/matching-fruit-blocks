@@ -20,6 +20,80 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 01:12 EDT | test(e2e): make frame and cue sampling engine-independent
+
+Back-filled entry for `2db580d`, which landed unlogged. Every frame-sampling helper waited a
+fixed 400ms window, which is comfortable on Chromium and sometimes ends before WebKit has
+turned the card. All three now wait until the flip is *observed* to reach face-on, with a 2s
+ceiling. The edge-on check in `grid-and-flip.spec.js` reads the transform matrix rather than
+the bounding rect, since Firefox reports a rect for a card rotated to exactly 90 degrees.
+`integration.spec.js` compares request origins against `baseURL` rather than `page.url()`,
+because the first request fires while the page is still `about:blank`, whose origin is `null`.
+`reshuffle-silence.spec.js` skips its listener test where WebAudio is absent instead of
+asserting over an empty recording. No assertion was loosened; each one was measuring the
+wrong thing.
+
+## 2026-08-04 01:11 EDT | test(e2e): run the suite on firefox and webkit
+
+Back-filled entry for `732c444`. `playwright.config.js` gained named `firefox` and `webkit`
+projects, taking the e2e suite from 92 tests to 276. The midpoint swap is the reason: it
+depends on transition timing, which is the single most likely thing to vary between engines,
+and a rig that holds only on Chromium is not a rig that holds.
+Named projects change Playwright's snapshot path template, so the stall baseline is now three
+per-engine images. They render text and CSS masks differently and there is no one correct
+picture.
+
+## 2026-08-04 01:10 EDT | fix(server): confine the dev server to loopback and the app tree
+
+Back-filled entry for `21adcb8`. `scripts/serve.js` had three real problems: it listened on
+every interface, making the whole checkout LAN-visible; it served dotfiles, so `/.git/config`
+handed over the repository; and it normalized the request path before decoding it, so
+`%2e%2e%2f` walked straight past the traversal guard as an opaque filename. It now binds
+`127.0.0.1`, decodes before normalizing, uses a separator-aware containment check rather than
+a bare `startsWith` (which also accepts a sibling directory sharing our prefix), and refuses
+dotfiles below the root.
+Covered by 7 new tests in `tests/e2e/server-hardening.spec.js`, green on all three engines.
+The deliberate non-goal: traversal that resolves back *inside* the repo is still served, which
+is what a static server for this directory is for. What must never happen is the walk
+continuing past the root.
+
+## 2026-08-04 01:09 EDT | fix(render): defer the card face wipe until the flip-back ends
+
+Back-filled entry for `422203a`, and the more serious of the two bugs the cross-engine run
+found. `backface-visibility: hidden` is not honored in this card stack on WebKit, so a card
+that had been revealed kept showing its fruit while face down. Verified directly rather than
+inferred: painting the hidden face changes rendered pixels on WebKit and does not on Chromium.
+It was masked for most of the project because the renderer wiped the face the instant a card
+went down, and removing that wipe in `4154fdc` is what surfaced it. The renderer now defers
+the wipe until the flip-back has finished, which satisfies both: the fruit rotates away
+naturally, and nothing is left on screen once the card settles.
+This also closed a WebKit-only tell. Because the front face is always visible there, honest
+reveals painted instantly while rigged ones painted half a flip later. Both phases now paint
+on one deadline through a single `revealSecond` path, so only the choice of fruit differs.
+Two task 18 timing tests were updated to the amended §7.1 contract, not weakened.
+
+## 2026-08-04 01:08 EDT | docs(spec): treat the swap midpoint as a ceiling, not a target
+
+Back-filled entry for `8d5672a`. Firefox was observed landing the swap *after* the face had
+become readable, flashing one frame of an unpainted card. It never revealed the pre-swap
+fruit, which is never drawn at all, but a card that flashes blank is its own tell.
+Per `AGENTS.md` the spec was amended before the code. §7.1 now treats the midpoint as a
+ceiling rather than a target, with the reasoning stated there: the front face is invisible for
+the whole first half of the rotation, so swapping a frame early costs nothing while swapping a
+frame late costs everything. `flipMidpoint` backs off by one frame and the swap races a timer
+against a rAF loop.
+
+## 2026-08-04 01:07 EDT | fix(a11y): stop cards blanking mid flip-back and repair contrast
+
+Back-filled entry for `4154fdc`. A card cleared its face the instant it began rotating back,
+so the fruit vanished a beat before the card turned away. The face now keeps its last sprite
+while down, and every reveal repaints it while the card is still edge-on or further, so
+nothing leaks.
+Raised the control face to a paler sanded pine (`--fm-wood-pale`) so its ink label clears WCAG
+AA at 6.7:1 rather than failing at 3.55:1, and gave focus a two-tone ring: a dark outline that
+carries contrast on the pale controls, a light halo that carries it on the dark grid. One
+color fails on one surface or the other, and the ring has to work everywhere it can land.
+
 ## 2026-08-03 05:39 EDT | feat(persistence): rigLevel persistence and the compounding curse (task 21)
 
 Added the `fm.state` layer to `js/game.js` (`loadState`, `saveState`, and a clamp on `rigLevel`)
