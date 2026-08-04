@@ -20,6 +20,49 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 03:31 EDT | feat(scene): put the stall outdoors under open sky (task 23)
+
+The stall now stands on the outskirts of a farm: a banded blue sky, a flat sun, three
+flat-bottomed pixel clouds, a hedgerow softening the horizon, and field rows that thicken toward
+the viewer so the ground reads as receding rather than as a barcode. Built entirely from CSS
+gradients, no image assets and no network requests, and the stall keeps a defined edge so it
+still reads as an object standing in a place.
+
+Two spec clauses forbade this and were amended first rather than quietly broken. §3.1 capped the
+palette at roughly 12 earth tones, so environment colors are now a separate group that lives in
+CSS and that no sprite may use, leaving the earth-tone brief governing the 16x16 art it was
+written for. §2.10 required warm chrome, and is now scoped to the stall with exactly one named
+backdrop layer exempt, because a sky cannot be warm-hued and still read as sky. New §3.6
+specifies the backdrop itself.
+
+The §2.10 guard was deliberately not touched. `chrome is warm-toned` walks every `[data-region]`
+and rejects any hue between 200 and 300, and widening that band would have retired the guard for
+the whole stall at once. Instead the backdrop is simply not a `data-region`, and a new test pins
+that: exactly one backdrop, it is not a region, no region hides inside it, and the five stall
+regions are still where they were. The exemption stays one documented hole.
+Covered by 10 new tests in `tests/e2e/outdoor-scene.spec.js`. Four of them passed on first write
+and were anchored to the backdrop existing rather than kept; one had a bug of its own, comparing
+request origins against `page.url()`, which is `about:blank` when the first request fires.
+Snapshot baselines regenerated deliberately on all three engines.
+
+Two real problems surfaced and neither was in the scene's appearance.
+
+Giving `.stall` a border to separate it from the sky shrank its content box and broke task 12's
+`awning spans the full stall width`. Changed to an `outline`, which draws outside the box and
+does not affect layout. The test was right and the CSS was wrong.
+
+`the honest phase is genuinely winnable` then failed on WebKit, deterministically, three runs out
+of three. Measured rather than guessed: the test needs 21.3s of real work on headless WebKit with
+no scenery on the page at all, against a 30s default, so it has been one busy machine away from
+failing since it was written. The scene added 27 percent and tipped it over. Both halves were
+fixed. The furrow overlay was raked a few degrees off axis, which is markedly more expensive to
+rasterize over a full-width band and bought a convergence not visible at that opacity, so it is
+axis-aligned now and the scene's cost dropped to 26.9s. And the test's allowance was raised to
+90s, which buys time rather than shortening the run, the way task 17's did: all 18 pairs are
+still played and every one must still lock.
+Full suite green: 163 unit, 320 e2e across chromium, firefox and webkit, plus the one deliberate
+WebKit WebAudio skip.
+
 ## 2026-08-04 02:39 EDT | docs(tasks): three tasks from the first real QA pass
 
 Added `tasks/23-outdoor-scene.md`, `tasks/24-honest-board-stability.md` and

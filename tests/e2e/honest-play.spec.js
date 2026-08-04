@@ -98,6 +98,14 @@ test('the honest phase is genuinely winnable', async ({ page }) => {
   // The rig arms at match 5, so the threshold is pushed out of reach to isolate
   // the honest loop. Proving all 18 pairs are findable is what makes the rig a
   // deliberate act rather than an indistinguishable bug in the match check.
+  //
+  // 36 clicks, each waiting on Playwright's actionability checks, and headless
+  // WebKit delivers frames roughly every 130ms. Measured at 21s there with no
+  // scenery on the page at all, against a 30s default: this test has been one
+  // busy machine away from failing since it was written. The allowance buys
+  // time rather than shortening the run, the way task 17's does. All 18 pairs
+  // are still played and every one must still lock.
+  test.setTimeout(90_000);
   await page.goto('/?fm-test=1&fm-rig=999');
 
   for (let pair = 0; pair < 18; pair += 1) {

@@ -24,26 +24,37 @@ function toHsl(color) {
 }
 
 /**
- * Sample the backdrop's painted color down a vertical line, avoiding the stall
- * so only the environment is read.
+ * Sample the backdrop's painted color down a vertical line, in a column beside
+ * the stall so only the environment is read.
+ *
+ * Hit tests the real layout rather than reading declared CSS, so it measures
+ * what is actually in front of the player at each height. The scene's bands are
+ * separate elements carrying solid `background-color` values precisely so this
+ * can work: a gradient has no single computed color to report.
  */
 async function sampleColumn(page, samples = 24) {
   return page.evaluate(async (count) => {
-    const backdrop = document.querySelector('[data-backdrop]');
+    /** Nearest ancestor that actually paints a background. */
+    const painted = (el) => {
+      let node = el;
+      while (node && node !== document.documentElement) {
+        const bg = getComputedStyle(node).backgroundColor;
+        if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return bg;
+        node = node.parentElement;
+      }
+      return getComputedStyle(document.body).backgroundColor;
+    };
+
     const stall = document.querySelector('.stall').getBoundingClientRect();
-    // A column to the left of the stall where the backdrop is unobstructed,
-    // falling back to the far edge on narrow viewports.
+    // A column beside the stall where the backdrop is unobstructed, falling
+    // back to the far edge on narrow viewports.
     const x = stall.left > 24 ? Math.max(4, stall.left / 2) : 4;
     const out = [];
     for (let i = 0; i < count; i += 1) {
-      const y = ((i + 0.5) / count) * window.innerHeight;
+      const ratio = (i + 0.5) / count;
+      const y = ratio * window.innerHeight;
       const el = document.elementFromPoint(x, y);
-      const owner = el && (el.closest('[data-backdrop]') ? el : backdrop);
-      out.push({
-        y: Math.round(y),
-        ratio: (i + 0.5) / count,
-        color: getComputedStyle(owner).backgroundColor,
-      });
+      out.push({ y: Math.round(y), ratio, color: el ? painted(el) : 'rgba(0, 0, 0, 0)' });
     }
     return out;
   }, samples);

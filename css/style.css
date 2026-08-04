@@ -27,6 +27,23 @@
   --fm-lcd-bg: #24170f;
   --fm-lcd-on: #f2d066;
 
+  /*
+   * Environment colors (SPEC.md §3.1, §3.6). A separate group from the earth
+   * tones above and from js/palette.js: no sprite may use these, and the sky
+   * cannot be warm-hued and still read as sky. §2.10's warm-tone rule is scoped
+   * to the stall for exactly this reason.
+   */
+  --fm-sky-high: #5fb0e5;
+  --fm-sky-low: #a8d8f0;
+  --fm-cloud: #fbfdff;
+  --fm-sun: #ffd97a;
+  --fm-field-far: #7fae4e;
+  --fm-field-mid: #6d9c40;
+  --fm-field-near: #5c8834;
+
+  /* Where the horizon sits, as a share of the viewport height. */
+  --fm-horizon: 58%;
+
   --fm-bevel-width: 3px;
 
   /*
@@ -58,7 +75,9 @@
 body {
   margin: 0;
   padding: clamp(8px, 3vw, 24px);
-  background: var(--fm-wood-dark);
+  /* The sky continues past the backdrop layer on very tall pages, so an
+     over-scrolled viewport never shows the old dark field behind it. */
+  background: var(--fm-sky-low);
   color: var(--fm-ink);
   /* No CDN fonts. A pixel face may be inlined later; the generic monospace
      fallback must always terminate the stack. */
@@ -66,11 +85,224 @@ body {
   -webkit-font-smoothing: none;
 }
 
+/* -------------------------------------------------------------------------
+ * Outdoor backdrop (SPEC.md §3.6)
+ *
+ * One fixed layer behind everything, built entirely from gradients. No image
+ * assets and no external url(), per §11 and the policy in §11.1.
+ *
+ * Flat bands with hard stops rather than smooth blends: §2.9 and §3.2 hold the
+ * whole game to a pixel idiom, and a soft airbrushed sky behind chunky 16x16
+ * sprites reads as two different games stapled together.
+ * ---------------------------------------------------------------------- */
+
+.scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  /*
+   * Give the backdrop its own compositing layer. A fixed layer this size, built
+   * from a dozen gradient stops and two repeating gradients, otherwise repaints
+   * on every scroll: measured on WebKit at 30 to 70 percent added cost per
+   * scroll, which the card flip's real-time deadlines cannot afford to share a
+   * main thread with (SPEC.md §2.3, §7.1).
+   */
+  will-change: transform;
+  /*
+   * Sky, banded rather than blended. Three hard steps lighten it toward the
+   * horizon, which is how a pixel artist fakes atmospheric haze without a
+   * gradient ramp.
+   *
+   * The solid `background-color` underneath is not redundant. A gradient has no
+   * single computed color, so it is the only thing `getComputedStyle` can
+   * report for this element, and the scene tests read the sky through it.
+   */
+  background-color: var(--fm-sky-high);
+  background-image: linear-gradient(
+    180deg,
+    var(--fm-sky-high) 0 26%,
+    color-mix(in srgb, var(--fm-sky-high) 78%, var(--fm-sky-low)) 26% 40%,
+    color-mix(in srgb, var(--fm-sky-high) 52%, var(--fm-sky-low)) 40% 50%,
+    color-mix(in srgb, var(--fm-sky-high) 26%, var(--fm-sky-low)) 50% 55%,
+    var(--fm-sky-low) 55% var(--fm-horizon),
+    transparent var(--fm-horizon) 100%
+  );
+}
+
+/*
+ * Decoration only, and skipped by hit testing so the scene tests sample the sky
+ * and the fields rather than whichever cloud happened to be in the column. The
+ * stall sits above this layer on its own z-index, so nothing here was ever in
+ * the way of a click.
+ */
+.scene__sun,
+.scene__clouds {
+  pointer-events: none;
+}
+
+/* A flat disc. No gradient, no glow, no rays (SPEC.md §3.6). */
+.scene__sun {
+  position: absolute;
+  top: clamp(18px, 7vh, 64px);
+  right: clamp(18px, 9vw, 140px);
+  width: clamp(38px, 8vw, 76px);
+  height: clamp(38px, 8vw, 76px);
+  border-radius: 50%;
+  background: var(--fm-sun);
+}
+
+.scene__clouds {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--fm-horizon);
+}
+
+/*
+ * A cloud is a flat-bottomed cluster of lumps: a pill for the body, two circles
+ * riding on it. All three are the same flat fill with no blur, so they fuse
+ * into one silhouette and stay in the pixel idiom (SPEC.md §3.6).
+ */
+.cloud,
+.cloud::before,
+.cloud::after {
+  position: absolute;
+  background: var(--fm-cloud);
+}
+
+.cloud {
+  height: 20px;
+  border-radius: 10px;
+}
+
+.cloud::before,
+.cloud::after {
+  content: '';
+  bottom: 0;
+  border-radius: 50%;
+}
+
+.cloud::before {
+  left: 12%;
+  width: 46px;
+  height: 46px;
+}
+
+.cloud::after {
+  right: 16%;
+  width: 32px;
+  height: 32px;
+}
+
+/*
+ * Kept out toward the edges. The stall is centred and opaque, so a cloud placed
+ * mid-sky is simply behind it and does no work.
+ */
+.cloud--a {
+  top: 13%;
+  left: 3%;
+  width: 132px;
+}
+
+.cloud--b {
+  top: 30%;
+  right: 3%;
+  width: 104px;
+  transform: scale(0.82);
+}
+
+.cloud--c {
+  top: 37%;
+  left: 8%;
+  width: 96px;
+  transform: scale(0.66);
+  opacity: 0.9;
+}
+
+/*
+ * A distant hedgerow sitting on the horizon: a row of flat bumps that softens
+ * the join between sky and field, which is otherwise a ruled line across the
+ * screen. Dark enough to read as far-off trees, low enough in contrast that it
+ * never pulls the eye off the grid.
+ */
+.scene__hedgerow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--fm-horizon) - 14px);
+  height: 16px;
+  background-repeat: repeat-x;
+  background-image: radial-gradient(
+    circle 11px at 11px 16px,
+    color-mix(in srgb, var(--fm-field-near) 74%, var(--fm-ink)) 0 11px,
+    transparent 11px
+  );
+  background-size: 19px 16px;
+}
+
+/*
+ * Fields below the horizon.
+ *
+ * Rows are horizontal bands that thicken toward the viewer, which is how flat
+ * pixel art fakes perspective: even spacing would read as a barcode, not a
+ * field. Two greens alternate, low contrast on purpose. The player has to read
+ * 36 small sprites and the scenery must not compete (SPEC.md §3.6).
+ */
+.scene__fields {
+  position: absolute;
+  inset: var(--fm-horizon) 0 0 0;
+  /* Solid fill under the banding, for the same reason the sky has one. */
+  background-color: var(--fm-field-mid);
+  background-image: linear-gradient(
+    180deg,
+    var(--fm-field-far) 0 2%,
+    var(--fm-field-mid) 2% 4.5%,
+    var(--fm-field-far) 4.5% 8%,
+    var(--fm-field-mid) 8% 12.5%,
+    var(--fm-field-far) 12.5% 18%,
+    var(--fm-field-mid) 18% 25%,
+    var(--fm-field-near) 25% 34%,
+    var(--fm-field-mid) 34% 46%,
+    var(--fm-field-near) 46% 62%,
+    var(--fm-field-mid) 62% 82%,
+    var(--fm-field-near) 82% 100%
+  );
+}
+
+/*
+ * Furrows running away from the viewer, barely there.
+ *
+ * Axis-aligned at 90deg rather than raked a few degrees off. An off-axis
+ * repeating gradient over a full-width band is markedly more expensive to
+ * rasterize, and the convergence it bought was not visible at this opacity.
+ */
+.scene__fields::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.05) 0 14px,
+    transparent 14px 44px
+  );
+}
+
 .stall {
   max-width: 640px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  /*
+   * In front of the scene, and given an edge so it reads as an object standing
+   * in a place rather than a panel pasted onto a picture (SPEC.md §3.6).
+   *
+   * `outline` rather than `border`: a border would shrink the content box, and
+   * the awning is sized to span the stall exactly. Task 12 asserts that span.
+   */
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--fm-bevel-dark);
+  box-shadow: 0 6px 0 rgba(43, 29, 23, 0.35);
 }
 
 /*

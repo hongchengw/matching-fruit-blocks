@@ -20,6 +20,26 @@
   </head>
   <body>
     <!--
+      The outdoor backdrop (SPEC.md §3.6). Deliberately NOT a data-region: §2.10
+      requires every region be warm-toned, and the sky is the one exemption. By
+      keeping it outside that set, the warm-tone guard needs no widening, which
+      is what would quietly retire it for the whole stall.
+
+      aria-hidden because it is scenery. It carries no information the player
+      needs and nothing they can act on.
+    -->
+    <div class="scene" data-backdrop aria-hidden="true">
+      <div class="scene__sun" data-sun></div>
+      <div class="scene__clouds">
+        <span class="cloud cloud--a"></span>
+        <span class="cloud cloud--b"></span>
+        <span class="cloud cloud--c"></span>
+      </div>
+      <div class="scene__hedgerow"></div>
+      <div class="scene__fields"></div>
+    </div>
+
+    <!--
       The five stall regions from SPEC.md §3.3, in order. Later tasks fill them:
       12 dresses the chrome, 13 builds the grid, 17 the scoreboard, 21 the reset
       button. The data-region hooks are the stable contract between those tasks,
