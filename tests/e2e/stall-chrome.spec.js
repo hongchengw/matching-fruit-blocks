@@ -102,6 +102,13 @@ test('regions stack in the spec order', async ({ page }) => {
 test('chrome is warm-toned', async ({ page }) => {
   // Encodes SPEC.md §2.10. The stall must read handmade and trustworthy; a cold
   // arcade look would telegraph malfunction before the rig ever arms.
+  //
+  // §2.10 is scoped to the stall. The outdoor backdrop behind it (§3.6) is
+  // exempt, because a sky cannot be warm-hued and still read as sky. That
+  // exemption is deliberately expressed as "the backdrop is not a data-region"
+  // rather than by widening the hue band below: widening the band would retire
+  // the guard for every region at once, and this band is the only thing holding
+  // §2.10.
   await page.goto('/');
   const colors = await page.evaluate(() =>
     [...document.querySelectorAll('[data-region]')].map((el) => ({
@@ -109,12 +116,30 @@ test('chrome is warm-toned', async ({ page }) => {
       bg: getComputedStyle(el).backgroundColor,
     })),
   );
+  expect(colors.length, 'no regions found to check').toBeGreaterThan(0);
   for (const { region: name, bg } of colors) {
     if (bg === 'rgba(0, 0, 0, 0)') continue;
     const { h, s, l } = toHsl(bg);
     if (s <= 0.12 || l <= 0.08 || l >= 0.95) continue;
     expect(h > 200 && h < 300, `${name} hue ${h.toFixed(0)} is cold`).toBe(false);
   }
+});
+
+test('only the backdrop is exempt from the warm-tone rule', async ({ page }) => {
+  // The escape from §2.10 stays a single documented hole. If a later change
+  // hangs a data-region inside the backdrop, or gives the backdrop a region
+  // name, this fails rather than silently letting cold chrome through.
+  await page.goto('/');
+  const shape = await page.evaluate(() => ({
+    backdrops: document.querySelectorAll('[data-backdrop]').length,
+    backdropIsRegion: document.querySelectorAll('[data-backdrop][data-region]').length,
+    regionsInsideBackdrop: document.querySelectorAll('[data-backdrop] [data-region]').length,
+    regionsInsideStall: document.querySelectorAll('.stall [data-region]').length,
+  }));
+  expect(shape.backdrops, 'expected exactly one backdrop layer').toBe(1);
+  expect(shape.backdropIsRegion, 'the backdrop must not be a data-region').toBe(0);
+  expect(shape.regionsInsideBackdrop, 'a region is hiding inside the backdrop').toBe(0);
+  expect(shape.regionsInsideStall, 'the five stall regions moved').toBe(5);
 });
 
 test('stall visual snapshot', async ({ page }) => {
