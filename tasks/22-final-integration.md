@@ -76,7 +76,9 @@ are green, since each one drives the assembled game rather than any single unit.
 
 ## Definition of done
 
-- All twenty-one E2E tests green.
+- All nineteen E2E tests green. (The tables above list nineteen: 5 playthrough, 4 responsive,
+  7 touch and accessibility, 3 regression sweep. This line said twenty-one, which was an
+  arithmetic slip and never matched the tables it was counting.)
 - Full suite green across every configured browser.
 - All four invariants from `SPEC.md` §10.3 verified in a single combined playthrough.
 - Changelog entry appended.

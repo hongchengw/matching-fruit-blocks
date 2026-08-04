@@ -20,6 +20,88 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-04 02:11 EDT | test(integration): the assembled game, verified on three engines (task 22)
+
+Task 22 adds no features and did not need to: nothing in `js/` changed. It drives the finished
+game and proves the pieces hold together, which is what nineteen tests across a full
+playthrough, four viewports, touch, keyboard, and a fifty-attempt regression sweep are for. All
+four sealed channels from SPEC.md §10.3 are now asserted together, on every attempt, inside one
+continuous playthrough rather than separately: no readable frame carries anything but the
+committed sprite, every mismatch cue is one shape, every unmatched fruit count stays even, and
+`rigLevel` survives a reload and a reset. Full suite green: 163 unit, 288 e2e across chromium,
+firefox, and webkit, plus one deliberate skip where Playwright's WebKit build ships no WebAudio
+at all and the game correctly degrades to silence.
+
+Three failures were fixed and none of them were in the app.
+
+Ten of the thirteen were the machine, not the product. Playwright defaults to half the logical
+cores, so six headless browsers were competing for the CPU while half this suite asserts on
+real-time deadlines: the 180ms flip, the 1000ms flip-back, and a swap that has to land inside
+the first half of a rotation. Firefox missed them and failed on context teardown timeouts, a
+flip-back measured at 1185ms against a 1150ms ceiling, and a busy flag that never cleared.
+Capping workers at three took the same suite from 13 failures to 1 with nothing else changed.
+One retry is now allowed for a Firefox `browserContext.close` protocol fault that fires after
+the test body has passed; Playwright reports that as flaky rather than passed, so it stays
+visible.
+
+The audio invariant failed on Chromium for a reason inside the recorder. It derived each cue's
+duration by subtracting two scheduled times, and `at` and `at + seconds` do not subtract back to
+`seconds`: the floating-point error depends on the size of the clock, so one 160ms buzz recorded
+as 0.15999999999999992 and the next as 0.16000000000000014, and two identical cues looked like
+two shapes. Rounded to the microsecond, which is four orders of magnitude finer than anything
+audible. The assertion also names the shapes that diverged now, instead of only their count.
+
+Rewrote `a real flip passes through the edge-on region`, which asked for a sampled frame within
+0.35 of edge-on: a window about 20ms wide in a 180ms flip, or one frame of margin at 60fps.
+Headless WebKit delivers requestAnimationFrame roughly every 130ms, so the flip was one or two
+samples wide there and could not be observed at all. Proximity was only ever a proxy for the
+real property, that the rotation *passes through* 90 degrees, and that is now asserted exactly
+by the cosine changing sign, which the sibling linear-timing test turns into a proof rather than
+an approximation. A second assertion requires intermediate angles to have been on screen, so a
+card that snapped from 0 to 180 still fails, and that was verified by setting the flip to 0ms
+and watching the test fail. This is a stricter assertion than the one it replaces.
+
+Corrected the task file's definition of done, which asked for twenty-one e2e tests while its own
+tables listed nineteen.
+
+## 2026-08-04 01:58 EDT | docs(security): audit findings and SECURITY.md
+
+Added `SECURITY.md`. Runtime is clean: `npm audit --omit=dev` reports 0, which is the expected
+answer for an app with no runtime dependencies. Source review found no meaningful attack
+surface, and the checks are recorded rather than summarized: no `innerHTML`, `eval`, `fetch`,
+cookies, or inline handlers anywhere, every DOM write through `textContent` or `setAttribute`,
+`localStorage` reads wrapped and range-checked, and no path by which parsed JSON reaches an
+object merge.
+Five advisories in the vitest/vite dev chain are recorded as knowingly deferred, not ignored.
+Every one needs a dev server this project never starts, none are in the shipped artifact, and
+the only offered fix is `npm audit fix --force`, which installs vitest 4, two majors up, with
+163 unit tests riding on it. Recommended as its own deliberate task.
+The shipping `?fm-test=1` and `&fm-rig=` hooks are recorded as accepted exposure with the
+reasoning, after verifying rather than assuming the claim that mattered: the override is never
+persisted, and `sanitizeRigLevel` clamps anything read back to 0 through 5, so pressing Reset
+while it is active cannot raise the stored threshold.
+
+## 2026-08-04 01:44 EDT | feat(security): enforce the no-network rule with a content security policy
+
+SPEC.md §11 forbade runtime network calls, but only as a rule the code was trusted to keep. New
+§11.1 makes it a property of the shipped page: `connect-src 'none'` refuses fetch, XHR,
+WebSocket, and sendBeacon in the browser, so an analytics call or a CDN font fails instead of
+passing review. It lives in `index.html` so it applies however the app is served, and
+`scripts/serve.js` sends the whole policy as a response header as well, since `frame-ancestors`
+is ignored in a meta tag by specification.
+The app needed no relaxation to run under it. The only style write is
+`canvas.style.imageRendering`, which is CSSOM and outside `style-src`, and that was confirmed by
+running the suite rather than by asserting it.
+Covered by 4 new tests on each engine. Two of them passed on first write and were fixed rather
+than kept, per the rule that a test which passes before implementation is misspecified:
+asserting that a third-party `fetch` rejects proves nothing, since it rejects anyway with no
+route and no CORS, so it now waits for the `securitypolicyviolation` event that only a policy
+fires; and the playthrough guard was anchored to the meta tag being present.
+Removed the `eval` from `a11y.spec.js` as a prerequisite. The contrast helpers were a source
+string eval'ed inside `page.evaluate`, which the policy refuses, and a test that needs `eval` is
+testing a page that does not ship. Only the backdrop walk has to run in the page, so the color
+math moved to the test process where both tests share one copy. The assertions are unchanged.
+
 ## 2026-08-04 01:12 EDT | test(e2e): make frame and cue sampling engine-independent
 
 Back-filled entry for `2db580d`, which landed unlogged. Every frame-sampling helper waited a
