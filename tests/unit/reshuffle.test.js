@@ -56,7 +56,7 @@ function failOnce(game) {
 }
 
 describe('silentReshuffle', () => {
-  it('runs after a failed attempt and never after a match', () => {
+  it('never runs after a match', () => {
     const game = createGame({
       deck: ['apple', 'apple', 'banana', 'banana']
         .concat(Array(32).fill('corn'))
@@ -64,17 +64,95 @@ describe('silentReshuffle', () => {
       rigLevel: 999,
     });
 
-    // A match leaves the rest of the board untouched.
     const before = game.state.cards.map((card) => card.fruit).join();
     game.flip(0);
     game.flip(1);
     expect(game.state.cards.map((card) => card.fruit).join()).toBe(before);
+  });
 
-    // A failure rearranges it.
-    game.flip(2);
-    game.flip(4);
-    vi.advanceTimersByTime(1000);
+  it('runs after a failed attempt once the rig has armed', () => {
+    const game = riggedGame();
+    const before = game.state.cards.map((card) => card.fruit).join();
+    failOnce(game);
     expect(game.state.cards.map((card) => card.fruit).join()).not.toBe(before);
+  });
+
+  /*
+   * The gate (SPEC.md §2.5, §6.5, §7.3).
+   *
+   * This test used to drive the reshuffle through an honest game, because the
+   * spec asked for it after *every* failed attempt. It is split rather than
+   * deleted: the half about matches is unchanged and still honest, and the half
+   * about failures moved to a rigged board, which is the only place a failure
+   * now reshuffles anything.
+   */
+  it('does not run during the honest phase', () => {
+    const game = createGame({ deck: buildDeck(), rigLevel: 5 });
+    expect(game.state.rigged).toBe(false);
+
+    const before = game.state.cards.map((card) => card.fruit).join();
+    failOnce(game);
+    expect(game.state.rigged).toBe(false);
+    expect(game.state.cards.map((card) => card.fruit).join()).toBe(before);
+  });
+
+  it('stays still for every honest failure, not just the first', () => {
+    const game = createGame({ deck: buildDeck(), rigLevel: 5 });
+    const before = game.state.cards.map((card) => card.fruit).join();
+    for (let i = 0; i < 8; i += 1) {
+      failOnce(game);
+      expect(game.state.cards.map((card) => card.fruit).join()).toBe(before);
+    }
+  });
+
+  it('gates on rigged rather than on a hardcoded threshold', () => {
+    // rigLevel 1: one honest match, then the board starts moving.
+    const game = createGame({ deck: buildDeck(), rigLevel: 1 });
+    const before = game.state.cards.map((card) => card.fruit).join();
+    failOnce(game);
+    expect(game.state.cards.map((card) => card.fruit).join()).toBe(before);
+
+    const cards = game.state.cards;
+    const pair = (() => {
+      for (let i = 0; i < cards.length; i += 1) {
+        for (let j = i + 1; j < cards.length; j += 1) {
+          if (cards[i].state === 'down' && cards[j].state === 'down' && cards[i].fruit === cards[j].fruit) {
+            return [cards[i], cards[j]];
+          }
+        }
+      }
+      return null;
+    })();
+    game.flip(pair[0].id);
+    game.flip(pair[1].id);
+    expect(game.state.rigged).toBe(true);
+
+    const armed = game.state.cards.map((card) => card.fruit).join();
+    failOnce(game);
+    expect(game.state.cards.map((card) => card.fruit).join()).not.toBe(armed);
+  });
+
+  it('keeps every unmatched fruit count even across the phase boundary', () => {
+    // The tally invariant (SPEC.md §10.3) under the gate. The reroll is the
+    // only thing that makes counts odd and it only runs when rigged, so gating
+    // the repair on the same condition leaves nothing unrepaired.
+    const game = createGame({ deck: buildDeck(), rigLevel: 3 });
+    expect(everyCountEven(game.state.cards)).toBe(true);
+
+    for (let i = 0; i < 40; i += 1) {
+      const down = game.state.cards.filter((card) => card.state === 'down');
+      const first = down[0];
+      const partner = down.find((card) => card.fruit === first.fruit && card.id !== first.id);
+      // Alternate between trying to match and deliberately missing, so the run
+      // crosses the threshold and then keeps going past it.
+      const second = i % 3 === 0 && partner ? partner : down.find((c) => c.fruit !== first.fruit);
+      if (!second) break;
+      game.flip(first.id);
+      game.flip(second.id);
+      vi.advanceTimersByTime(DEFAULT_FLIP_MS);
+      vi.advanceTimersByTime(1000);
+      expect(everyCountEven(game.state.cards), `odd count after attempt ${i + 1}`).toBe(true);
+    }
   });
 
   it('never touches locked cards', () => {

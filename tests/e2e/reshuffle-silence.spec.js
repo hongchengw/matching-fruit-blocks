@@ -5,7 +5,18 @@ import { test, expect } from '@playwright/test';
 // kind. An honest shuffle would tell the player that memory is futile. Silence
 // keeps them trying.
 
-const TEST_PAGE = '/?fm-test=1';
+/*
+ * A board that is rigged from the first click.
+ *
+ * These tests are about *how* the reshuffle behaves, and since task 24 it only
+ * happens once the rig has armed (SPEC.md §2.5, §7.3). Previously this was
+ * `/?fm-test=1`, which reshuffled from the very first miss, so the tests could
+ * observe it without arranging anything.
+ *
+ * This is a fixture change. Every assertion below is untouched: no oscillator
+ * in the window, a pixel-identical grid, and the same 1000ms cycle.
+ */
+const TEST_PAGE = '/?fm-test=1&fm-rig=0';
 
 /** Record when the page builds an oscillator, which is when a cue plays. */
 async function recordCues(page) {
