@@ -189,6 +189,12 @@ The five regions sit in front of the outdoor backdrop specified in §3.6.
 - Chunky 3px bevel: light on top and left, dark on bottom and right, giving a raised pixel-frame look.
 - Locked (matched) cards get a desaturated, recessed treatment (bevel inverted) so the live playfield reads clearly against them.
 
+**Slot variation.** The face-down grid carries a small amount of variation in its crate slats so it reads as a stocked stall rather than a tiled texture.
+
+**The variation is a property of the grid slot, never of the card.** This is a hard rule, not a stylistic note. If a card's back varied with its identity, its id, or anything else that travels with it, a player could track one specific card straight through a silent reshuffle and watch its fruit change. That is §10.3's visual channel reopened at its widest, by a decorative change, which is exactly the kind of regression `AGENTS.md` warns lands even when every test still passes.
+
+Nothing moves between slots: only hidden identities are ever reassigned (§7.3), so a slot-bound look cannot follow a card anywhere. The card back sprite itself stays a single sprite with no per-card variants (task 10), and the variation is in the presentation of the slot around it.
+
 ### 3.5 Typography
 
 A pixel webfont only if it can be embedded locally or base64-inlined. **No CDN requests, no external font hosts.** Fallback is a `monospace` stack with generous `letter-spacing` and `text-transform: uppercase`. Task 11 tests that the page issues no font network requests.
