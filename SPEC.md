@@ -437,9 +437,43 @@ These are not optional and must not be weakened:
 - No difficulty settings or game modes.
 - No backend, no network calls of any kind at runtime.
 - No analytics or telemetry.
-- No build step, bundler, or transpiler for the shipped app.
+- No bundler, no transpiler, and no transform of any kind applied to shipped source. The file
+  the browser executes is the file in the repository, byte for byte. Selecting *which* files
+  are published is a separate matter and is specified in §11.2.
 - No framework. Vanilla HTML, CSS, and ES modules.
 - No escape hatch from the curse.
+
+### 11.2 Publishing: the repository is not the artifact
+
+The app is deployed from a `dist/` tree assembled by `scripts/build.js`, never by serving the
+checkout.
+
+This is not a relaxation of the rule above. `scripts/build.js` copies three entries,
+`index.html`, `css/`, and `js/`, and rewrites nothing. There is no bundling, no minification,
+and no transpilation, so the guarantee in §11 that the browser runs hand-written source is
+exactly as true after the copy as before it.
+
+**The reason it exists is §1.** This repository is a complete and candid description of the
+rig. `SPEC.md` states it outright, `tasks/` and `changelogs/` narrate building it, `tests/`
+enumerates every sealed channel and the assertion that guards it, and `SECURITY.md` lists the
+debug hooks by name. §1 requires that the player never obtain proof they were cheated. A
+checkout deployed as-is serves that proof at `/SPEC.md`, and every seal described in §10.3 is
+worthless against a player who has simply read this file. The four detection channels are
+sealed against a player who is watching, listening, counting, or reloading; none of them is
+sealed against a player who is *reading the source repository*, and only publishing less can
+close that.
+
+The shipped tree is therefore an **allowlist**, and it lists directories rather than files so
+that a module added later ships automatically while nothing outside those directories can be
+picked up by accident. A denylist would fail the wrong way: forgetting to exclude a new
+document publishes it.
+
+**The production host must send the §11.1 policy as real response headers.** The meta tag
+still ships in `index.html` and still holds, but `frame-ancestors` is ignored in a meta tag by
+specification, so it exists only if the host sends it. `vercel.json` carries the full policy
+for that reason, and a unit test asserts it matches the policy `scripts/serve.js` sends, since
+a policy that holds only on the dev server means the suite has been testing a page that does
+not ship.
 
 ### 11.1 The no-network rule is enforced, not merely observed
 

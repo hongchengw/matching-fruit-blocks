@@ -20,6 +20,44 @@ See [`../AGENTS.md`](../AGENTS.md) for the full per-task loop this log is part o
 
 ---
 
+## 2026-08-05 02:06 EDT | feat(build): publishable dist tree and a Vercel deployment config
+
+Added `scripts/build.js`, `vercel.json`, and a README that documents building, previewing,
+testing, and deploying. `npm run build` assembles `dist/` from three entries: `index.html`,
+`css/`, and `js/`.
+
+**This is a selection step, not a build step in the sense §11 forbids.** Nothing is bundled,
+minified, or transpiled, and the files in `dist/` are byte-for-byte the files in the repo, so
+§11's guarantee that the browser runs hand-written source is exactly as true after the copy.
+§11 is reworded to say that precisely, and new §11.2 specifies the publishing rule.
+
+The reason it exists is §1, and it is a real hole rather than packaging hygiene. Every sealed
+channel in §10.3 is sealed against a player who is watching, listening, counting, or reloading.
+None of them is sealed against a player who reads the repository, and this repository is a
+candid and complete description of the rig: `SPEC.md` states it outright, `tasks/` and
+`changelogs/` narrate building it, `tests/` names every seal, and `SECURITY.md` lists the debug
+hooks. Deployed as a checkout the game serves its own design document at `/SPEC.md`. Verified
+rather than assumed: the repo server returns 200 for `/SPEC.md` and the built tree returns 404.
+
+The shipped tree is an allowlist of directories rather than of files, so a module added later
+ships automatically. A denylist fails the wrong way, by publishing whatever nobody remembered
+to exclude.
+
+`vercel.json` carries the §11.1 policy as real response headers, which is the only way
+`frame-ancestors` exists at all, since a meta tag ignores it by specification. A unit test
+asserts the production policy matches the one `scripts/serve.js` sends, because a policy that
+holds only on the dev server means the suite has been testing a page that does not ship.
+
+Covered by 7 unit tests: what ships, what must never ship, the directory allowlist, the two CSP
+assertions, and a refusal to build into a directory containing the source, since the first thing
+`build` does is delete its output and a host runs it unattended. Verified the built output
+actually runs rather than only that it contains the right files: served `dist/` on its own port,
+clicked a card, and confirmed 36 cards, a flip to `up`, a painted sprite, and a live scoreboard.
+`build.js` hit the same jsdom trap task 14 recorded, where `import.meta.url` is the document URL
+and `fileURLToPath` throws at module load; the module resolves its root lazily now, so the fix is
+in the module rather than in the test.
+Unit suite green: 213 passed, up from 206.
+
 ## 2026-08-04 06:43 EDT | feat(scene): crate variation and an outdoor sound bed (tasks 29, 30)
 
 Three crate shades cycle across the face-down grid on a 7-slot stride, chosen so the pattern does
